@@ -36,15 +36,20 @@ int main(int argc, char *argv[]) {
             std::cout << "[" << action_type_to_string(action.type) << "] " << action.path << "\n";
         }
 
-        for (const auto &file : files) {
-            db.save_file(file);
+        if (!config.dry_run) {
+            for (const auto &file : files) {
+                db.save_file(file);
+            }
+
+            for (const auto &action : actions) {
+                if (action.type == SyncActionType::Deleted) {
+                    db.delete_file(action.path);
+                }
+            }
+        } else {
+            std::cout << "Dry run: database was not updated\n";
         }
 
-        for (const auto &action : actions) {
-            if (action.type == SyncActionType::Deleted) {
-                db.delete_file(action.path);
-            }
-        }
     } catch (const std::exception &e) {
         std::cerr << "Error: " << e.what() << "\n";
         return 1;
