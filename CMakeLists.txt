@@ -14,6 +14,8 @@ add_executable(obsidian-sync
     src/sync_plan.cpp
     src/config.cpp
     src/output.cpp
+    src/manifest.cpp
+    src/manifest_compare.cpp
 )
 
 target_link_libraries(

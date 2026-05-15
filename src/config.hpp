@@ -12,6 +12,9 @@ struct Config {
     std::string manifest_file_path;
     std::filesystem::path server_root;
     bool server_mode = false;
+    bool compare_manifests = false;
+    std::string compare_manifest_a;
+    std::string compare_manifest_b;
 };
 
 Config parse_args(int argc, char *argv[]);

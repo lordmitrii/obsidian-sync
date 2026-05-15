@@ -40,14 +40,23 @@ Config parse_args(int argc, char *argv[]) {
 
             config.server_root = argv[++i];
             config.server_mode = true;
+        } else if (arg == "--compare-manifests") {
+            if (i + 2 >= argc) {
+                throw std::runtime_error("--compare-manifests requires two manifest paths");
+            }
+
+            config.compare_manifests = true;
+
+            config.compare_manifest_a = argv[++i];
+            config.compare_manifest_b = argv[++i];
         } else {
             throw std::runtime_error("Unknown argument: " + arg);
         }
     }
 
-    if (config.vault_path.empty() && config.server_root.empty()) {
-        throw std::runtime_error("Missing required argument: --vault or --server-root");
+    if (!config.compare_manifests && config.vault_path.empty() && config.server_root.empty()) {
+        throw std::runtime_error(
+            "Missing required argument: --vault, --server-root, or --compare-manifests");
     }
-
     return config;
 }

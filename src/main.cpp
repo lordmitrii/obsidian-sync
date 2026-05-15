@@ -4,6 +4,8 @@
 #include <iostream>
 
 #include "config.hpp"
+#include "manifest.hpp"
+#include "manifest_compare.hpp"
 #include "output.hpp"
 #include "sync_plan.hpp"
 
@@ -11,6 +13,21 @@ namespace fs = std::filesystem;
 
 int main(int argc, char *argv[]) {
     Config config = parse_args(argc, argv);
+
+    if (config.compare_manifests) {
+
+        auto local = load_manifest(config.compare_manifest_a);
+
+        auto remote = load_manifest(config.compare_manifest_b);
+
+        auto actions = compare_manifests(local, remote);
+
+        for (const auto &action : actions) {
+            std::cout << manifest_action_to_string(action.type) << " " << action.path << "\n";
+        }
+
+        return 0;
+    }
 
     fs::path root_path = config.server_mode ? config.server_root : config.vault_path;
 
