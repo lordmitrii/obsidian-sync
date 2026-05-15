@@ -13,6 +13,7 @@ add_executable(obsidian-sync
     src/scanner.cpp
     src/sync_plan.cpp
     src/config.cpp
+    src/output.cpp
 )
 
 target_link_libraries(

@@ -1,11 +1,10 @@
 #include "db.hpp"
 #include "scanner.hpp"
 
-#include <filesystem>
 #include <iostream>
-#include <unordered_set>
 
 #include "config.hpp"
+#include "output.hpp"
 #include "sync_plan.hpp"
 
 namespace fs = std::filesystem;
@@ -32,8 +31,10 @@ int main(int argc, char *argv[]) {
         auto files = scan_vault(vault_path);
         auto actions = build_sync_plan(db, files);
 
-        for (const auto &action : actions) {
-            std::cout << "[" << action_type_to_string(action.type) << "] " << action.path << "\n";
+        if (config.json_output) {
+            print_json_actions(actions);
+        } else {
+            print_text_actions(actions);
         }
 
         if (!config.dry_run) {

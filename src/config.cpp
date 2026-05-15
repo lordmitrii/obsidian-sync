@@ -21,9 +21,10 @@ Config parse_args(int argc, char *argv[]) {
             }
 
             config.state_db_path = argv[++i];
-
-                  } else if (arg == "--dry-run") {
+        } else if (arg == "--dry-run") {
             config.dry_run = true;
+        } else if (arg == "--json") {
+            config.json_output = true;
         } else {
             throw std::runtime_error("Unknown argument: " + arg);
         }
