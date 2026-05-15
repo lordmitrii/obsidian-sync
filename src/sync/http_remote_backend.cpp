@@ -2,6 +2,7 @@
 
 #include "security.hpp"
 
+#include <cstring>
 #include <curl/curl.h>
 #include <filesystem>
 #include <fstream>
@@ -84,11 +85,30 @@ static HttpResponse request(const std::string &method,
     curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, DEFAULT_HTTP_CONNECT_TIMEOUT_SECONDS);
     curl_easy_setopt(curl, CURLOPT_TIMEOUT, DEFAULT_HTTP_REQUEST_TIMEOUT_SECONDS);
 
+    struct ReadState {
+        const char *data;
+        std::size_t remaining;
+        std::size_t offset;
+    };
+    ReadState read_state{};
+
     if (method == "PUT") {
-        curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, "PUT");
-        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, body != nullptr ? body->data() : "");
-        curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE,
-                         body != nullptr ? static_cast<long>(body->size()) : 0L);
+        if (body != nullptr) {
+            read_state = {body->data(), body->size(), 0};
+        }
+        curl_easy_setopt(curl, CURLOPT_UPLOAD, 1L);
+        curl_easy_setopt(curl, CURLOPT_INFILESIZE_LARGE,
+                         static_cast<curl_off_t>(body != nullptr ? body->size() : 0));
+        curl_easy_setopt(curl, CURLOPT_READFUNCTION,
+                         +[](char *buf, std::size_t size, std::size_t nmemb, void *ud) -> std::size_t {
+                             auto *s = static_cast<ReadState *>(ud);
+                             std::size_t n = std::min(size * nmemb, s->remaining);
+                             std::memcpy(buf, s->data + s->offset, n);
+                             s->offset += n;
+                             s->remaining -= n;
+                             return n;
+                         });
+        curl_easy_setopt(curl, CURLOPT_READDATA, &read_state);
     } else if (method == "DELETE") {
         curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, "DELETE");
     }

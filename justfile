@@ -10,9 +10,9 @@ default:
 
 build:
     docker build --platform linux/arm64 -f Dockerfile.arm64 -t {{image}} .
-    docker create --platform linux/arm64 --name _extract_{{bin}} {{image}}
-    docker cp _extract_{{bin}}:/build/{{bin}} /tmp/{{bin}}-arm64
-    docker rm _extract_{{bin}}
+    docker create --platform linux/arm64 --name extract-{{bin}} {{image}}
+    docker cp extract-{{bin}}:/build/{{bin}} /tmp/{{bin}}-arm64
+    docker rm extract-{{bin}}
     @echo "Binary ready: /tmp/{{bin}}-arm64 ($(file /tmp/{{bin}}-arm64 | grep -o 'ARM aarch64'))"
 
 deploy: build
