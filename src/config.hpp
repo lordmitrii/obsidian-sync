@@ -15,6 +15,9 @@ struct Config {
     bool compare_manifests = false;
     std::string compare_manifest_a;
     std::string compare_manifest_b;
+    std::filesystem::path local_root;
+    std::filesystem::path remote_root;
+    bool apply = false;
 };
 
 Config parse_args(int argc, char *argv[]);

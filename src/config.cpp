@@ -49,14 +49,31 @@ Config parse_args(int argc, char *argv[]) {
 
             config.compare_manifest_a = argv[++i];
             config.compare_manifest_b = argv[++i];
+        } else if (arg == "--local-root") {
+            if (i + 1 >= argc) {
+                throw std::runtime_error("--local-root requires a path");
+            }
+
+            config.local_root = argv[++i];
+
+        } else if (arg == "--remote-root") {
+            if (i + 1 >= argc) {
+                throw std::runtime_error("--remote-root requires a path");
+            }
+
+            config.remote_root = argv[++i];
+
+        } else if (arg == "--apply") {
+            config.apply = true;
         } else {
             throw std::runtime_error("Unknown argument: " + arg);
         }
     }
 
-    if (!config.compare_manifests && config.vault_path.empty() && config.server_root.empty()) {
-        throw std::runtime_error(
-            "Missing required argument: --vault, --server-root, or --compare-manifests");
+    if (!config.compare_manifests && config.vault_path.empty() && config.server_root.empty() &&
+        (config.local_root.empty() || config.remote_root.empty())) {
+        throw std::runtime_error("Missing required argument: --vault, --server-root, "
+                                 "--compare-manifests, or --local-root with --remote-root");
     }
     return config;
 }

@@ -1,47 +1,84 @@
-#include "db.hpp"
-#include "scanner.hpp"
-
-#include <iostream>
-
 #include "config.hpp"
+#include "db.hpp"
 #include "manifest.hpp"
 #include "manifest_compare.hpp"
 #include "output.hpp"
+#include "scanner.hpp"
+#include "sync_execute.hpp"
 #include "sync_plan.hpp"
+
+#include <filesystem>
+#include <iostream>
 
 namespace fs = std::filesystem;
 
 int main(int argc, char *argv[]) {
-    Config config = parse_args(argc, argv);
+    try {
+        Config config = parse_args(argc, argv);
 
-    if (config.compare_manifests) {
+        if (config.compare_manifests) {
+            auto local = load_manifest(config.compare_manifest_a);
+            auto remote = load_manifest(config.compare_manifest_b);
 
-        auto local = load_manifest(config.compare_manifest_a);
+            auto actions = compare_manifests(local, remote);
 
-        auto remote = load_manifest(config.compare_manifest_b);
+            for (const auto &action : actions) {
+                std::cout << manifest_action_to_string(action.type) << " " << action.path << "\n";
+            }
 
-        auto actions = compare_manifests(local, remote);
-
-        for (const auto &action : actions) {
-            std::cout << manifest_action_to_string(action.type) << " " << action.path << "\n";
+            return 0;
         }
 
-        return 0;
-    }
+        if (!config.local_root.empty() && !config.remote_root.empty()) {
+            if (!fs::exists(config.local_root) || !fs::is_directory(config.local_root)) {
+                std::cerr << "Local root does not exist or is not a directory\n";
+                return 1;
+            }
 
-    fs::path root_path = config.server_mode ? config.server_root : config.vault_path;
+            if (!fs::exists(config.remote_root) || !fs::is_directory(config.remote_root)) {
+                std::cerr << "Remote root does not exist or is not a directory\n";
+                return 1;
+            }
 
-    if (!fs::exists(root_path)) {
-        std::cerr << "Path does not exist\n";
-        return 1;
-    }
+            auto local_files = scan_vault(config.local_root);
+            auto remote_files = scan_vault(config.remote_root);
 
-    if (!fs::is_directory(root_path)) {
-        std::cerr << "Path is not a directory\n";
-        return 1;
-    }
+            Manifest local_manifest;
+            Manifest remote_manifest;
 
-    try {
+            for (const auto &file : local_files) {
+                local_manifest[file.path] = file;
+            }
+
+            for (const auto &file : remote_files) {
+                remote_manifest[file.path] = file;
+            }
+
+            auto actions = compare_manifests(local_manifest, remote_manifest);
+
+            for (const auto &action : actions) {
+                std::cout << manifest_action_to_string(action.type) << " " << action.path << "\n";
+            }
+
+            if (config.apply) {
+                execute_manifest_actions(actions, config.local_root, config.remote_root);
+            }
+
+            return 0;
+        }
+
+        fs::path root_path = config.server_mode ? config.server_root : config.vault_path;
+
+        if (!fs::exists(root_path)) {
+            std::cerr << "Path does not exist\n";
+            return 1;
+        }
+
+        if (!fs::is_directory(root_path)) {
+            std::cerr << "Path is not a directory\n";
+            return 1;
+        }
+
         Database db(config.state_db_path);
         db.initialize();
 
