@@ -12,6 +12,7 @@ add_executable(obsidian-sync
     src/hasher.cpp
     src/scanner.cpp
     src/sync_plan.cpp
+    src/config.cpp
 )
 
 target_link_libraries(

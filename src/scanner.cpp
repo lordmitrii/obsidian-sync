@@ -5,35 +5,40 @@
 
 namespace fs = std::filesystem;
 
-bool should_ignore(const fs::path& path) {
+bool should_ignore(const fs::path &path) {
     std::string s = path.string();
 
-    if (s.find(".DS_Store") != std::string::npos) return true;
-    if (s.find(".obsidian/workspace.json") != std::string::npos) return true;
-    if (s.find(".obsidian/workspace-mobile.json") != std::string::npos) return true;
-    if (s.find(".obsidian/cache") != std::string::npos) return true;
-    if (s.find(".trash") != std::string::npos) return true;
+    if (s.find(".DS_Store") != std::string::npos)
+        return true;
+    if (s.find(".obsidian/workspace.json") != std::string::npos)
+        return true;
+    if (s.find(".obsidian/workspace-mobile.json") != std::string::npos)
+        return true;
+    if (s.find(".obsidian/cache") != std::string::npos)
+        return true;
+    if (s.find(".trash") != std::string::npos)
+        return true;
 
-    if (path.extension() == ".tmp") return true;
-    if (path.extension() == ".swp") return true;
+    if (path.extension() == ".tmp")
+        return true;
+    if (path.extension() == ".swp")
+        return true;
 
     return false;
 }
 
-std::int64_t get_modified_time(const fs::path& path) {
+std::int64_t get_modified_time(const fs::path &path) {
     auto time = fs::last_write_time(path);
 
-    auto seconds = std::chrono::duration_cast<std::chrono::seconds>(
-        time.time_since_epoch()
-    );
+    auto seconds = std::chrono::duration_cast<std::chrono::seconds>(time.time_since_epoch());
 
     return seconds.count();
 }
 
-std::vector<FileMeta> scan_vault(const fs::path& vault_path) {
+std::vector<FileMeta> scan_vault(const fs::path &vault_path) {
     std::vector<FileMeta> files;
 
-    for (const auto& entry : fs::recursive_directory_iterator(vault_path)) {
+    for (const auto &entry : fs::recursive_directory_iterator(vault_path)) {
         if (!entry.is_regular_file()) {
             continue;
         }

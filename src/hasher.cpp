@@ -7,14 +7,14 @@
 #include <sstream>
 #include <stdexcept>
 
-std::string sha256_file(const std::filesystem::path& path) {
+std::string sha256_file(const std::filesystem::path &path) {
     std::ifstream file(path, std::ios::binary);
 
     if (!file) {
         throw std::runtime_error("Could not open file: " + path.string());
     }
 
-    EVP_MD_CTX* ctx = EVP_MD_CTX_new();
+    EVP_MD_CTX *ctx = EVP_MD_CTX_new();
 
     if (!ctx) {
         throw std::runtime_error("Failed to create EVP context");
@@ -52,10 +52,7 @@ std::string sha256_file(const std::filesystem::path& path) {
     std::ostringstream result;
 
     for (unsigned int i = 0; i < hash_length; ++i) {
-        result << std::hex
-               << std::setw(2)
-               << std::setfill('0')
-               << static_cast<int>(hash[i]);
+        result << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(hash[i]);
     }
 
     return result.str();
