@@ -12,15 +12,15 @@ namespace fs = std::filesystem;
 int main(int argc, char *argv[]) {
     Config config = parse_args(argc, argv);
 
-    fs::path vault_path = config.vault_path;
+    fs::path root_path = config.server_mode ? config.server_root : config.vault_path;
 
-    if (!fs::exists(vault_path)) {
-        std::cerr << "Vault path does not exist\n";
+    if (!fs::exists(root_path)) {
+        std::cerr << "Path does not exist\n";
         return 1;
     }
 
-    if (!fs::is_directory(vault_path)) {
-        std::cerr << "Vault path is not a directory\n";
+    if (!fs::is_directory(root_path)) {
+        std::cerr << "Path is not a directory\n";
         return 1;
     }
 
@@ -28,7 +28,7 @@ int main(int argc, char *argv[]) {
         Database db(config.state_db_path);
         db.initialize();
 
-        auto files = scan_vault(vault_path);
+        auto files = scan_vault(root_path);
 
         if (!config.manifest_file_path.empty()) {
             write_json_manifest_to_file(files, config.manifest_file_path);

@@ -10,6 +10,8 @@ struct Config {
     bool json_output = false;
     bool manifest_output = false;
     std::string manifest_file_path;
+    std::filesystem::path server_root;
+    bool server_mode = false;
 };
 
 Config parse_args(int argc, char *argv[]);

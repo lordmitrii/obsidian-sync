@@ -33,13 +33,20 @@ Config parse_args(int argc, char *argv[]) {
             }
 
             config.manifest_file_path = argv[++i];
+        } else if (arg == "--server-root") {
+            if (i + 1 >= argc) {
+                throw std::runtime_error("--server-root requires a path");
+            }
+
+            config.server_root = argv[++i];
+            config.server_mode = true;
         } else {
             throw std::runtime_error("Unknown argument: " + arg);
         }
     }
 
-    if (config.vault_path.empty()) {
-        throw std::runtime_error("Missing required argument: --vault");
+    if (config.vault_path.empty() && config.server_root.empty()) {
+        throw std::runtime_error("Missing required argument: --vault or --server-root");
     }
 
     return config;
