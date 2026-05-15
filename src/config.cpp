@@ -88,9 +88,25 @@ Config parse_args(int argc, char *argv[]) {
 
         } else if (arg == "--apply") {
             config.apply = true;
+        } else if (arg == "--watch") {
+            config.watch = true;
+        } else if (arg == "--interval") {
+            if (i + 1 >= argc) {
+                throw std::runtime_error("--interval requires seconds");
+            }
+
+            config.watch_interval_seconds = std::stoi(argv[++i]);
+
+            if (config.watch_interval_seconds <= 0) {
+                throw std::runtime_error("--interval must be greater than zero");
+            }
         } else {
             throw std::runtime_error("Unknown argument: " + arg);
         }
+    }
+
+    if (config.watch && !config.apply) {
+        throw std::runtime_error("--watch requires --apply");
     }
 
     if (!config.compare_manifests && config.vault_path.empty() && config.server_root.empty() &&

@@ -21,6 +21,8 @@ struct Config {
     std::filesystem::path remote_root;
     std::string remote_url;
     bool apply = false;
+    bool watch = false;
+    int watch_interval_seconds = 30;
 };
 
 Config parse_args(int argc, char *argv[]);

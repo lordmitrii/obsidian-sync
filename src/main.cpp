@@ -11,8 +11,10 @@
 #include "three_way_compare.hpp"
 #include "two_way_compare.hpp"
 
+#include <chrono>
 #include <filesystem>
 #include <iostream>
+#include <thread>
 
 namespace fs = std::filesystem;
 
@@ -56,6 +58,65 @@ static void update_base_state_after_apply(Database &db,
     }
 }
 
+static void print_manifest_actions(const std::vector<ManifestAction> &actions) {
+    for (const auto &action : actions) {
+        std::cout << manifest_action_to_string(action.type) << " " << action.path << "\n";
+    }
+
+    std::cout.flush();
+}
+
+static void run_http_sync_once(const Config &config) {
+    auto local_files = scan_vault(config.local_root);
+
+    Database db(config.state_db_path);
+    db.initialize();
+
+    auto base_manifest = db.load_as_manifest();
+    auto local_manifest = files_to_manifest(local_files);
+    auto remote_manifest = fetch_remote_manifest(config.remote_url);
+
+    auto actions = compare_three_way(base_manifest, local_manifest, remote_manifest);
+
+    print_manifest_actions(actions);
+
+    if (config.apply) {
+        execute_http_actions(actions, config.local_root, config.remote_url);
+        update_base_state_after_apply(db, actions, config.local_root);
+    }
+}
+
+static void run_local_sync_once(const Config &config) {
+    auto local_files = scan_vault(config.local_root);
+    auto remote_files = scan_vault(config.remote_root);
+
+    Database db(config.state_db_path);
+    db.initialize();
+
+    auto base_manifest = db.load_as_manifest();
+    auto local_manifest = files_to_manifest(local_files);
+    auto remote_manifest = files_to_manifest(remote_files);
+
+    auto actions = compare_three_way(base_manifest, local_manifest, remote_manifest);
+
+    print_manifest_actions(actions);
+
+    if (config.apply) {
+        execute_manifest_actions(actions, config.local_root, config.remote_root);
+        update_base_state_after_apply(db, actions, config.local_root);
+    }
+}
+
+template <typename SyncFn>
+static void run_watch_loop(const Config &config, SyncFn sync_once) {
+    while (true) {
+        sync_once(config);
+        std::cout << "Sleeping for " << config.watch_interval_seconds << " seconds\n";
+        std::cout.flush();
+        std::this_thread::sleep_for(std::chrono::seconds(config.watch_interval_seconds));
+    }
+}
+
 int main(int argc, char *argv[]) {
     try {
         Config config = parse_args(argc, argv);
@@ -79,24 +140,10 @@ int main(int argc, char *argv[]) {
                 return 1;
             }
 
-            auto local_files = scan_vault(config.local_root);
-
-            Database db(config.state_db_path);
-            db.initialize();
-
-            auto base_manifest = db.load_as_manifest();
-            auto local_manifest = files_to_manifest(local_files);
-            auto remote_manifest = fetch_remote_manifest(config.remote_url);
-
-            auto actions = compare_three_way(base_manifest, local_manifest, remote_manifest);
-
-            for (const auto &action : actions) {
-                std::cout << manifest_action_to_string(action.type) << " " << action.path << "\n";
-            }
-
-            if (config.apply) {
-                execute_http_actions(actions, config.local_root, config.remote_url);
-                update_base_state_after_apply(db, actions, config.local_root);
+            if (config.watch) {
+                run_watch_loop(config, run_http_sync_once);
+            } else {
+                run_http_sync_once(config);
             }
 
             return 0;
@@ -113,25 +160,10 @@ int main(int argc, char *argv[]) {
                 return 1;
             }
 
-            auto local_files = scan_vault(config.local_root);
-            auto remote_files = scan_vault(config.remote_root);
-
-            Database db(config.state_db_path);
-            db.initialize();
-
-            auto base_manifest = db.load_as_manifest();
-            auto local_manifest = files_to_manifest(local_files);
-            auto remote_manifest = files_to_manifest(remote_files);
-
-            auto actions = compare_three_way(base_manifest, local_manifest, remote_manifest);
-
-            for (const auto &action : actions) {
-                std::cout << manifest_action_to_string(action.type) << " " << action.path << "\n";
-            }
-
-            if (config.apply) {
-                execute_manifest_actions(actions, config.local_root, config.remote_root);
-                update_base_state_after_apply(db, actions, config.local_root);
+            if (config.watch) {
+                run_watch_loop(config, run_local_sync_once);
+            } else {
+                run_local_sync_once(config);
             }
 
             return 0;
