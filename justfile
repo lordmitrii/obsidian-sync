@@ -69,6 +69,9 @@ _setup-systemd:
         sudo systemctl enable obsidian-sync-server; \
     "
 
+install-client:
+    bash install-client.sh
+
 renew-cert:
     ssh {{host}} "sudo certbot renew --cert-name {{domain}} --force-renewal"
     ssh {{host}} "sudo systemctl reload nginx"
