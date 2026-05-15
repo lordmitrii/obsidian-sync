@@ -3,13 +3,20 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-BINARY="${OBSIDIAN_SYNC_BIN:-$REPO_ROOT/build/obsidian-sync}"
+CLIENT_BINARY="${OBSIDIAN_SYNC_CLIENT_BIN:-$REPO_ROOT/build/obsidian-sync-client}"
+SERVER_BINARY="${OBSIDIAN_SYNC_SERVER_BIN:-$REPO_ROOT/build/obsidian-sync-server}"
 TOKEN="test-token"
 PORT="${OBSIDIAN_SYNC_TEST_PORT:-19080}"
 BASE_URL="http://127.0.0.1:$PORT"
 
-if [[ ! -x "$BINARY" ]]; then
-    echo "Missing executable: $BINARY" >&2
+if [[ ! -x "$CLIENT_BINARY" ]]; then
+    echo "Missing executable: $CLIENT_BINARY" >&2
+    echo "Build first with: cmake --build build" >&2
+    exit 1
+fi
+
+if [[ ! -x "$SERVER_BINARY" ]]; then
+    echo "Missing executable: $SERVER_BINARY" >&2
     echo "Build first with: cmake --build build" >&2
     exit 1
 fi
@@ -41,7 +48,7 @@ start_server() {
     local root="$1"
     local log="$2"
 
-    OBSIDIAN_SYNC_TOKEN="$TOKEN" "$BINARY" \
+    OBSIDIAN_SYNC_TOKEN="$TOKEN" "$SERVER_BINARY" \
         --server-root "$root" \
         --server-port "$PORT" >"$log" 2>&1 &
     SERVER_PID="$!"
@@ -80,7 +87,7 @@ test_server_requires_token_env() {
     local root="$TMP_ROOT/no-token-root"
     mkdir -p "$root"
 
-    if env -u OBSIDIAN_SYNC_TOKEN "$BINARY" --server-root "$root" --server-port "$PORT" \
+    if env -u OBSIDIAN_SYNC_TOKEN "$SERVER_BINARY" --server-root "$root" --server-port "$PORT" \
         >"$TMP_ROOT/no-token.log" 2>&1; then
         fail "server started without OBSIDIAN_SYNC_TOKEN"
     fi
@@ -144,10 +151,10 @@ test_client_sync_and_state() {
     printf 'local-conflict' >"$dir/local/conflict.md"
     printf 'remote-conflict' >"$dir/remote/conflict.md"
 
-    "$BINARY" --vault "$dir/base" --state "$dir/state.db" >/dev/null
+    "$CLIENT_BINARY" --vault "$dir/base" --state "$dir/state.db" >/dev/null
     start_server "$dir/remote" "$TMP_ROOT/sync-server.log"
 
-    if env -u OBSIDIAN_SYNC_TOKEN "$BINARY" \
+    if env -u OBSIDIAN_SYNC_TOKEN "$CLIENT_BINARY" \
         --local-root "$dir/local" \
         --remote-url "$BASE_URL" \
         --state "$dir/state.db" \
@@ -155,7 +162,7 @@ test_client_sync_and_state() {
         fail "HTTP client synced without OBSIDIAN_SYNC_TOKEN"
     fi
 
-    OBSIDIAN_SYNC_TOKEN="$TOKEN" "$BINARY" \
+    OBSIDIAN_SYNC_TOKEN="$TOKEN" "$CLIENT_BINARY" \
         --local-root "$dir/local" \
         --remote-url "$BASE_URL" \
         --state "$dir/state.db" \
@@ -176,7 +183,7 @@ test_client_sync_and_state() {
     assert_file_content "$dir/local/conflict.md" "local-conflict"
     assert_file_content "$dir/local/conflict.conflict-remote.md" "remote-conflict"
 
-    OBSIDIAN_SYNC_TOKEN="$TOKEN" "$BINARY" \
+    OBSIDIAN_SYNC_TOKEN="$TOKEN" "$CLIENT_BINARY" \
         --local-root "$dir/local" \
         --remote-url "$BASE_URL" \
         --state "$dir/state.db" >"$dir/second-plan.txt"

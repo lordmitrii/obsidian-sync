@@ -3,7 +3,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-BINARY="${OBSIDIAN_SYNC_BIN:-$REPO_ROOT/build/obsidian-sync}"
+BINARY="${OBSIDIAN_SYNC_CLIENT_BIN:-$REPO_ROOT/build/obsidian-sync-client}"
 
 if [[ ! -x "$BINARY" ]]; then
     echo "Missing executable: $BINARY" >&2

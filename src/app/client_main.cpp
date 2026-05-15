@@ -1,6 +1,5 @@
 #include "config.hpp"
 #include "db.hpp"
-#include "http_server.hpp"
 #include "http_remote_backend.hpp"
 #include "local_remote_backend.hpp"
 #include "manifest.hpp"
@@ -31,6 +30,11 @@ static void run_watch_loop(const Config &config, SyncService &sync_service) {
 int main(int argc, char *argv[]) {
     try {
         Config config = parse_args(argc, argv);
+
+        if (config.server_mode) {
+            std::cerr << "Use obsidian-sync-server for --server-root\n";
+            return 1;
+        }
 
         if (config.compare_manifests) {
             auto local = load_manifest(config.compare_manifest_a);
@@ -84,22 +88,6 @@ int main(int argc, char *argv[]) {
                 sync_service.run_once();
             }
 
-            return 0;
-        }
-
-        if (config.server_mode) {
-            if (!fs::exists(config.server_root) || !fs::is_directory(config.server_root)) {
-                std::cerr << "Server root does not exist or is not a directory\n";
-                return 1;
-            }
-
-            std::string token = load_required_bearer_token();
-            run_http_server(config.server_root,
-                            config.server_host,
-                            config.server_port,
-                            token,
-                            DEFAULT_MAX_UPLOAD_BYTES,
-                            DEFAULT_RATE_LIMIT_PER_MINUTE);
             return 0;
         }
 
