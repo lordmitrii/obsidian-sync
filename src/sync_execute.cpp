@@ -11,6 +11,17 @@ static void copy_file_safely(const fs::path &source, const fs::path &destination
     fs::copy_file(source, destination, fs::copy_options::overwrite_existing);
 }
 
+static void copy_file_without_overwriting(const fs::path &source, const fs::path &destination) {
+    fs::create_directories(destination.parent_path());
+
+    fs::copy_file(source, destination, fs::copy_options::none);
+}
+
+static fs::path remote_conflict_path(const fs::path &local_path) {
+    return local_path.parent_path() /
+           (local_path.stem().string() + ".conflict-remote" + local_path.extension().string());
+}
+
 void execute_manifest_actions(const std::vector<ManifestAction> &actions,
                               const fs::path &local_root, const fs::path &remote_root) {
     for (const auto &action : actions) {
@@ -31,14 +42,13 @@ void execute_manifest_actions(const std::vector<ManifestAction> &actions,
         case ManifestActionType::Conflict: {
             std::cout << "Conflict: " << action.path << "\n";
 
-            fs::path local_path = local_root / action.path;
-            fs::path remote_path = remote_root / action.path;
+            if (!fs::exists(remote_path)) {
+                std::cout << "Remote version is missing; no conflict copy was saved\n";
+                break;
+            }
 
-            fs::path conflict_path =
-                local_path.parent_path() /
-                (local_path.stem().string() + ".conflict-remote" + local_path.extension().string());
-
-            copy_file_safely(remote_path, conflict_path);
+            fs::path conflict_path = remote_conflict_path(local_path);
+            copy_file_without_overwriting(remote_path, conflict_path);
 
             std::cout << "Saved remote version as " << conflict_path.string() << "\n";
 
@@ -46,7 +56,15 @@ void execute_manifest_actions(const std::vector<ManifestAction> &actions,
         }
 
         case ManifestActionType::DeleteLocal:
+            std::cout << "Deleting local " << action.path << "\n";
+            fs::remove(local_path);
+            break;
+
         case ManifestActionType::DeleteRemote:
+            std::cout << "Deleting remote " << action.path << "\n";
+            fs::remove(remote_path);
+            break;
+
         case ManifestActionType::Unchanged:
             break;
         }

@@ -69,7 +69,7 @@ int main(int argc, char *argv[]) {
             }
 
             if (config.apply) {
-                std::cout << "--apply is not supported for local/remote sync planning yet\n";
+                execute_manifest_actions(actions, config.local_root, config.remote_root);
             }
 
             return 0;
