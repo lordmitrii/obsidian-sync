@@ -30,6 +30,18 @@ fi
 INTERVAL=$(ask "Sync interval in seconds [30]")
 INTERVAL=${INTERVAL:-30}
 
+HOOK_OBSIDIAN=false
+if [[ "$OS" == "Linux" ]] && command -v obsidian >/dev/null 2>&1; then
+    read -rp "Hook sync to Obsidian? Start/stop with the app [Y/n]: " _hook
+    [[ "${_hook:-y}" =~ ^[Yy] ]] && HOOK_OBSIDIAN=true
+elif [[ "$OS" == "Darwin" ]]; then
+    OBSIDIAN_APP=$(mdfind "kMDItemCFBundleIdentifier == 'md.obsidian'" 2>/dev/null | head -1)
+    if [[ -n "$OBSIDIAN_APP" ]]; then
+        read -rp "Hook sync to Obsidian? Start/stop with the app [Y/n]: " _hook
+        [[ "${_hook:-y}" =~ ^[Yy] ]] && HOOK_OBSIDIAN=true
+    fi
+fi
+
 VAULT_NAME=$(basename "$VAULT_PATH")
 SLUG=$(echo "$VAULT_NAME" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9' '-' | sed 's/-$//')
 STATE_DB="$STATE_DIR/$SLUG.db"
@@ -101,12 +113,19 @@ WantedBy=default.target
 EOF
 
     systemctl --user daemon-reload
-    systemctl --user enable --now "obsidian-sync-${SLUG}.service"
-    info "service enabled: obsidian-sync-${SLUG}"
-    info "logs:  journalctl --user -u obsidian-sync-${SLUG} -f"
-    info "stop:  systemctl --user stop obsidian-sync-${SLUG}"
+    if $HOOK_OBSIDIAN; then
+        systemctl --user disable "obsidian-sync-${SLUG}.service" 2>/dev/null || true
+        systemctl --user stop    "obsidian-sync-${SLUG}.service" 2>/dev/null || true
+        info "service installed (not auto-started — Obsidian will manage it)"
+    else
+        systemctl --user enable --now "obsidian-sync-${SLUG}.service"
+        info "service enabled: obsidian-sync-${SLUG}"
+        info "logs:  journalctl --user -u obsidian-sync-${SLUG} -f"
+        info "stop:  systemctl --user stop obsidian-sync-${SLUG}"
+    fi
 
 elif [[ "$OS" == "Darwin" ]]; then
+    $HOOK_OBSIDIAN && _plist_autostart="false" || _plist_autostart="true"
     PLIST_DIR="$HOME/Library/LaunchAgents"
     PLIST_LABEL="org.pemsoft.obsidian-sync.${SLUG}"
     PLIST_FILE="$PLIST_DIR/${PLIST_LABEL}.plist"
@@ -145,9 +164,9 @@ elif [[ "$OS" == "Darwin" ]]; then
   </dict>
 
   <key>RunAtLoad</key>
-  <true/>
+  <${_plist_autostart}/>
   <key>KeepAlive</key>
-  <true/>
+  <${_plist_autostart}/>
 
   <key>StandardOutPath</key>
   <string>${LOG_OUT}</string>
@@ -167,6 +186,84 @@ else
     die "unsupported OS: $OS (only Linux and macOS are supported)"
 fi
 
+
+
+# ── obsidian hook ─────────────────────────────────────────────────────────────
+
+if $HOOK_OBSIDIAN; then
+    echo ""
+    echo "── obsidian hook ──────────────────────────────────────────────────────────"
+
+    if [[ "$OS" == "Linux" ]]; then
+        OBSIDIAN_BIN=$(command -v obsidian)
+        WRAPPER="$INSTALL_DIR/obsidian-synced"
+        DESKTOP_DIR="$HOME/.local/share/applications"
+
+        cat > "$WRAPPER" <<EOF
+#!/usr/bin/env bash
+SERVICE="obsidian-sync-${SLUG}.service"
+systemctl --user start "\$SERVICE"
+${OBSIDIAN_BIN} "\$@"
+systemctl --user stop "\$SERVICE"
+EOF
+        chmod +x "$WRAPPER"
+
+        mkdir -p "$DESKTOP_DIR"
+        cat > "$DESKTOP_DIR/obsidian.desktop" <<EOF
+[Desktop Entry]
+Name=Obsidian
+Exec=${WRAPPER} %U
+Terminal=false
+Type=Application
+Icon=obsidian
+StartupWMClass=obsidian
+Comment=Obsidian
+MimeType=x-scheme-handler/obsidian;
+Categories=Office;
+EOF
+        update-desktop-database "$DESKTOP_DIR" 2>/dev/null || true
+
+        info "wrapper:       $WRAPPER"
+        info "desktop entry: $DESKTOP_DIR/obsidian.desktop"
+
+    elif [[ "$OS" == "Darwin" ]]; then
+        PLIST_LABEL="org.pemsoft.obsidian-sync.${SLUG}"
+        APP_DIR="$HOME/Applications"
+        APP="$APP_DIR/Obsidian Synced.app"
+        APP_BIN="$APP/Contents/MacOS/obsidian-synced"
+        mkdir -p "$APP/Contents/MacOS"
+
+        # Minimal Info.plist so macOS recognises it as a real app
+        cat > "$APP/Contents/Info.plist" <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleExecutable</key>     <string>obsidian-synced</string>
+  <key>CFBundleIdentifier</key>     <string>org.pemsoft.obsidian-synced</string>
+  <key>CFBundleName</key>           <string>Obsidian Synced</string>
+  <key>CFBundleVersion</key>        <string>1</string>
+  <key>CFBundlePackageType</key>    <string>APPL</string>
+  <key>LSUIElement</key>            <false/>
+</dict>
+</plist>
+EOF
+
+        cat > "$APP_BIN" <<EOF
+#!/usr/bin/env bash
+# Start sync, open Obsidian, stop sync when Obsidian quits
+launchctl start "${PLIST_LABEL}"
+open -W "${OBSIDIAN_APP}"
+launchctl stop "${PLIST_LABEL}"
+EOF
+        chmod +x "$APP_BIN"
+
+        info "app: $APP"
+        info "Open 'Obsidian Synced' from ~/Applications or Spotlight instead of Obsidian"
+        info "sync runs only while Obsidian is open"
+    fi
+fi
 
 echo ""
 echo "── first sync preview ─────────────────────────────────────────────────────"
