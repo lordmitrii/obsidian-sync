@@ -40,6 +40,22 @@ Config parse_args(int argc, char *argv[]) {
 
             config.server_root = argv[++i];
             config.server_mode = true;
+        } else if (arg == "--server-host") {
+            if (i + 1 >= argc) {
+                throw std::runtime_error("--server-host requires a host");
+            }
+
+            config.server_host = argv[++i];
+        } else if (arg == "--server-port") {
+            if (i + 1 >= argc) {
+                throw std::runtime_error("--server-port requires a port");
+            }
+
+            config.server_port = std::stoi(argv[++i]);
+
+            if (config.server_port <= 0 || config.server_port > 65535) {
+                throw std::runtime_error("--server-port must be between 1 and 65535");
+            }
         } else if (arg == "--compare-manifests") {
             if (i + 2 >= argc) {
                 throw std::runtime_error("--compare-manifests requires two manifest paths");

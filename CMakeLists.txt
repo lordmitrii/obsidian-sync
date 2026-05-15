@@ -4,7 +4,16 @@ project(obsidian_sync)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+include(FetchContent)
+
 find_package(OpenSSL REQUIRED)
+
+FetchContent_Declare(
+    cpp-httplib
+    GIT_REPOSITORY https://github.com/yhirose/cpp-httplib.git
+    GIT_TAG v0.18.7
+)
+FetchContent_MakeAvailable(cpp-httplib)
 
 add_executable(obsidian-sync
     src/main.cpp
@@ -14,6 +23,7 @@ add_executable(obsidian-sync
     src/sync_plan.cpp
     src/config.cpp
     src/output.cpp
+    src/http_server.cpp
     src/manifest.cpp
     src/manifest_action.cpp
     src/three_way_compare.cpp
@@ -25,5 +35,6 @@ target_link_libraries(
     obsidian-sync
     OpenSSL::SSL
     OpenSSL::Crypto
+    httplib::httplib
     sqlite3
 )

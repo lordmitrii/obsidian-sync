@@ -1,5 +1,6 @@
 #include "config.hpp"
 #include "db.hpp"
+#include "http_server.hpp"
 #include "manifest.hpp"
 #include "manifest_action.hpp"
 #include "output.hpp"
@@ -22,6 +23,36 @@ static Manifest files_to_manifest(const std::vector<FileMeta> &files) {
     }
 
     return manifest;
+}
+
+static void update_base_state_after_apply(Database &db,
+                                          const std::vector<ManifestAction> &actions,
+                                          const fs::path &local_root) {
+    for (const auto &action : actions) {
+        switch (action.type) {
+        case ManifestActionType::Upload:
+        case ManifestActionType::Download:
+        case ManifestActionType::Unchanged: {
+            auto file = scan_file(local_root, action.path);
+
+            if (file.has_value()) {
+                db.save_file(*file);
+            } else {
+                db.delete_file(action.path);
+            }
+
+            break;
+        }
+
+        case ManifestActionType::DeleteLocal:
+        case ManifestActionType::DeleteRemote:
+            db.delete_file(action.path);
+            break;
+
+        case ManifestActionType::Conflict:
+            break;
+        }
+    }
 }
 
 int main(int argc, char *argv[]) {
@@ -70,12 +101,23 @@ int main(int argc, char *argv[]) {
 
             if (config.apply) {
                 execute_manifest_actions(actions, config.local_root, config.remote_root);
+                update_base_state_after_apply(db, actions, config.local_root);
             }
 
             return 0;
         }
 
-        fs::path root_path = config.server_mode ? config.server_root : config.vault_path;
+        if (config.server_mode) {
+            if (!fs::exists(config.server_root) || !fs::is_directory(config.server_root)) {
+                std::cerr << "Server root does not exist or is not a directory\n";
+                return 1;
+            }
+
+            run_http_server(config.server_root, config.server_host, config.server_port);
+            return 0;
+        }
+
+        fs::path root_path = config.vault_path;
 
         if (!fs::exists(root_path)) {
             std::cerr << "Path does not exist\n";
