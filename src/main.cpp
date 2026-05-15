@@ -1,14 +1,15 @@
 #include "config.hpp"
 #include "db.hpp"
-#include "http_client.hpp"
 #include "http_server.hpp"
+#include "http_remote_backend.hpp"
+#include "local_remote_backend.hpp"
 #include "manifest.hpp"
 #include "manifest_action.hpp"
 #include "output.hpp"
 #include "scanner.hpp"
-#include "sync_execute.hpp"
+#include "security.hpp"
 #include "sync_plan.hpp"
-#include "three_way_compare.hpp"
+#include "sync_service.hpp"
 #include "two_way_compare.hpp"
 
 #include <chrono>
@@ -18,99 +19,9 @@
 
 namespace fs = std::filesystem;
 
-static Manifest files_to_manifest(const std::vector<FileMeta> &files) {
-    Manifest manifest;
-
-    for (const auto &file : files) {
-        manifest[file.path] = file;
-    }
-
-    return manifest;
-}
-
-static void update_base_state_after_apply(Database &db,
-                                          const std::vector<ManifestAction> &actions,
-                                          const fs::path &local_root) {
-    for (const auto &action : actions) {
-        switch (action.type) {
-        case ManifestActionType::Upload:
-        case ManifestActionType::Download:
-        case ManifestActionType::Unchanged: {
-            auto file = scan_file(local_root, action.path);
-
-            if (file.has_value()) {
-                db.save_file(*file);
-            } else {
-                db.delete_file(action.path);
-            }
-
-            break;
-        }
-
-        case ManifestActionType::DeleteLocal:
-        case ManifestActionType::DeleteRemote:
-            db.delete_file(action.path);
-            break;
-
-        case ManifestActionType::Conflict:
-            break;
-        }
-    }
-}
-
-static void print_manifest_actions(const std::vector<ManifestAction> &actions) {
-    for (const auto &action : actions) {
-        std::cout << manifest_action_to_string(action.type) << " " << action.path << "\n";
-    }
-
-    std::cout.flush();
-}
-
-static void run_http_sync_once(const Config &config) {
-    auto local_files = scan_vault(config.local_root);
-
-    Database db(config.state_db_path);
-    db.initialize();
-
-    auto base_manifest = db.load_as_manifest();
-    auto local_manifest = files_to_manifest(local_files);
-    auto remote_manifest = fetch_remote_manifest(config.remote_url);
-
-    auto actions = compare_three_way(base_manifest, local_manifest, remote_manifest);
-
-    print_manifest_actions(actions);
-
-    if (config.apply) {
-        execute_http_actions(actions, config.local_root, config.remote_url);
-        update_base_state_after_apply(db, actions, config.local_root);
-    }
-}
-
-static void run_local_sync_once(const Config &config) {
-    auto local_files = scan_vault(config.local_root);
-    auto remote_files = scan_vault(config.remote_root);
-
-    Database db(config.state_db_path);
-    db.initialize();
-
-    auto base_manifest = db.load_as_manifest();
-    auto local_manifest = files_to_manifest(local_files);
-    auto remote_manifest = files_to_manifest(remote_files);
-
-    auto actions = compare_three_way(base_manifest, local_manifest, remote_manifest);
-
-    print_manifest_actions(actions);
-
-    if (config.apply) {
-        execute_manifest_actions(actions, config.local_root, config.remote_root);
-        update_base_state_after_apply(db, actions, config.local_root);
-    }
-}
-
-template <typename SyncFn>
-static void run_watch_loop(const Config &config, SyncFn sync_once) {
+static void run_watch_loop(const Config &config, SyncService &sync_service) {
     while (true) {
-        sync_once(config);
+        sync_service.run_once();
         std::cout << "Sleeping for " << config.watch_interval_seconds << " seconds\n";
         std::cout.flush();
         std::this_thread::sleep_for(std::chrono::seconds(config.watch_interval_seconds));
@@ -140,10 +51,14 @@ int main(int argc, char *argv[]) {
                 return 1;
             }
 
+            std::string token = load_required_bearer_token();
+            HttpRemoteBackend backend(config.remote_url, token, DEFAULT_MAX_UPLOAD_BYTES);
+            SyncService sync_service(config.local_root, config.state_db_path, backend, config.apply);
+
             if (config.watch) {
-                run_watch_loop(config, run_http_sync_once);
+                run_watch_loop(config, sync_service);
             } else {
-                run_http_sync_once(config);
+                sync_service.run_once();
             }
 
             return 0;
@@ -160,10 +75,13 @@ int main(int argc, char *argv[]) {
                 return 1;
             }
 
+            LocalRemoteBackend backend(config.remote_root);
+            SyncService sync_service(config.local_root, config.state_db_path, backend, config.apply);
+
             if (config.watch) {
-                run_watch_loop(config, run_local_sync_once);
+                run_watch_loop(config, sync_service);
             } else {
-                run_local_sync_once(config);
+                sync_service.run_once();
             }
 
             return 0;
@@ -175,7 +93,13 @@ int main(int argc, char *argv[]) {
                 return 1;
             }
 
-            run_http_server(config.server_root, config.server_host, config.server_port);
+            std::string token = load_required_bearer_token();
+            run_http_server(config.server_root,
+                            config.server_host,
+                            config.server_port,
+                            token,
+                            DEFAULT_MAX_UPLOAD_BYTES,
+                            DEFAULT_RATE_LIMIT_PER_MINUTE);
             return 0;
         }
 

@@ -1,16 +1,49 @@
 #include "http_server.hpp"
 
 #include "scanner.hpp"
+#include "security.hpp"
 
+#include <chrono>
+#include <deque>
 #include <filesystem>
 #include <fstream>
 #include <httplib.h>
 #include <iostream>
+#include <mutex>
 #include <nlohmann/json.hpp>
 #include <sstream>
 
 namespace fs = std::filesystem;
 using json = nlohmann::json;
+using Clock = std::chrono::steady_clock;
+
+class RateLimiter {
+  public:
+    explicit RateLimiter(int max_requests_per_minute)
+        : max_requests_per_minute_(max_requests_per_minute) {}
+
+    bool allow() {
+        std::lock_guard<std::mutex> lock(mutex_);
+        auto now = Clock::now();
+        auto window_start = now - std::chrono::minutes(1);
+
+        while (!requests_.empty() && requests_.front() < window_start) {
+            requests_.pop_front();
+        }
+
+        if (static_cast<int>(requests_.size()) >= max_requests_per_minute_) {
+            return false;
+        }
+
+        requests_.push_back(now);
+        return true;
+    }
+
+  private:
+    int max_requests_per_minute_;
+    std::mutex mutex_;
+    std::deque<Clock::time_point> requests_;
+};
 
 static bool is_safe_relative_path(const std::string &path) {
     if (path.empty()) {
@@ -81,8 +114,40 @@ static bool request_path(const httplib::Request &req, std::string &path) {
     return is_safe_relative_path(path);
 }
 
-void run_http_server(const fs::path &server_root, const std::string &host, int port) {
+static bool is_authorized(const httplib::Request &req, const std::string &bearer_token) {
+    if (!req.has_header("Authorization")) {
+        return false;
+    }
+
+    return req.get_header_value("Authorization") == bearer_authorization_header(bearer_token);
+}
+
+void run_http_server(const fs::path &server_root,
+                     const std::string &host,
+                     int port,
+                     const std::string &bearer_token,
+                     std::size_t max_upload_bytes,
+                     int rate_limit_per_minute) {
     httplib::Server server;
+    RateLimiter rate_limiter(rate_limit_per_minute);
+
+    server.set_payload_max_length(max_upload_bytes);
+    server.set_pre_routing_handler(
+        [&bearer_token, &rate_limiter](const httplib::Request &req, httplib::Response &res) {
+            if (!rate_limiter.allow()) {
+                res.status = 429;
+                res.set_content("Too many requests\n", "text/plain");
+                return httplib::Server::HandlerResponse::Handled;
+            }
+
+            if (!is_authorized(req, bearer_token)) {
+                res.status = 401;
+                res.set_content("Unauthorized\n", "text/plain");
+                return httplib::Server::HandlerResponse::Handled;
+            }
+
+            return httplib::Server::HandlerResponse::Unhandled;
+        });
 
     server.Get("/manifest", [server_root](const httplib::Request &, httplib::Response &res) {
         auto files = scan_vault(server_root);
@@ -159,6 +224,8 @@ void run_http_server(const fs::path &server_root, const std::string &host, int p
     });
 
     std::cout << "Serving " << server_root << " on http://" << host << ":" << port << "\n";
+    std::cout << "Max upload size: " << max_upload_bytes << " bytes\n";
+    std::cout << "Rate limit: " << rate_limit_per_minute << " requests/minute\n";
 
     if (!server.listen(host, port)) {
         throw std::runtime_error("Failed to start HTTP server");

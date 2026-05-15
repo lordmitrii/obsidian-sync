@@ -1,4 +1,6 @@
-#include "http_client.hpp"
+#include "http_remote_backend.hpp"
+
+#include "security.hpp"
 
 #include <curl/curl.h>
 #include <filesystem>
@@ -6,6 +8,7 @@
 #include <nlohmann/json.hpp>
 #include <sstream>
 #include <stdexcept>
+#include <utility>
 
 namespace fs = std::filesystem;
 using json = nlohmann::json;
@@ -41,45 +44,6 @@ static std::string escape_query_value(CURL *curl, const std::string &value) {
     return result;
 }
 
-static HttpResponse request(const std::string &method,
-                            const std::string &url,
-                            const std::string *body = nullptr) {
-    CURL *curl = curl_easy_init();
-
-    if (curl == nullptr) {
-        throw std::runtime_error("Failed to initialize curl");
-    }
-
-    HttpResponse response;
-
-    curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
-    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_to_string);
-    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response.body);
-    curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
-
-    if (method == "PUT") {
-        curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, "PUT");
-        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, body != nullptr ? body->data() : "");
-        curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE,
-                         body != nullptr ? static_cast<long>(body->size()) : 0L);
-    } else if (method == "DELETE") {
-        curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, "DELETE");
-    }
-
-    CURLcode code = curl_easy_perform(curl);
-
-    if (code != CURLE_OK) {
-        std::string message = curl_easy_strerror(code);
-        curl_easy_cleanup(curl);
-        throw std::runtime_error("HTTP request failed: " + message);
-    }
-
-    curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response.status);
-    curl_easy_cleanup(curl);
-
-    return response;
-}
-
 static std::string file_url(const std::string &remote_url, const std::string &path) {
     CURL *curl = curl_easy_init();
 
@@ -95,6 +59,54 @@ static std::string file_url(const std::string &remote_url, const std::string &pa
 
 static std::string manifest_url(const std::string &remote_url) {
     return trim_trailing_slashes(remote_url) + "/manifest";
+}
+
+static HttpResponse request(const std::string &method,
+                            const std::string &url,
+                            const std::string &bearer_token,
+                            const std::string *body = nullptr) {
+    CURL *curl = curl_easy_init();
+
+    if (curl == nullptr) {
+        throw std::runtime_error("Failed to initialize curl");
+    }
+
+    HttpResponse response;
+    curl_slist *headers = nullptr;
+    std::string auth_header = "Authorization: " + bearer_authorization_header(bearer_token);
+    headers = curl_slist_append(headers, auth_header.c_str());
+
+    curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+    curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_to_string);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response.body);
+    curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+    curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, DEFAULT_HTTP_CONNECT_TIMEOUT_SECONDS);
+    curl_easy_setopt(curl, CURLOPT_TIMEOUT, DEFAULT_HTTP_REQUEST_TIMEOUT_SECONDS);
+
+    if (method == "PUT") {
+        curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, "PUT");
+        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, body != nullptr ? body->data() : "");
+        curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE,
+                         body != nullptr ? static_cast<long>(body->size()) : 0L);
+    } else if (method == "DELETE") {
+        curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, "DELETE");
+    }
+
+    CURLcode code = curl_easy_perform(curl);
+
+    if (code != CURLE_OK) {
+        std::string message = curl_easy_strerror(code);
+        curl_slist_free_all(headers);
+        curl_easy_cleanup(curl);
+        throw std::runtime_error("HTTP request failed: " + message);
+    }
+
+    curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response.status);
+    curl_slist_free_all(headers);
+    curl_easy_cleanup(curl);
+
+    return response;
 }
 
 static Manifest parse_manifest(const std::string &body) {
@@ -146,13 +158,15 @@ static void write_file(const fs::path &path, const std::string &body, bool overw
     }
 }
 
-static fs::path remote_conflict_path(const fs::path &local_path) {
-    return local_path.parent_path() /
-           (local_path.stem().string() + ".conflict-remote" + local_path.extension().string());
-}
+HttpRemoteBackend::HttpRemoteBackend(std::string remote_url,
+                                     std::string bearer_token,
+                                     std::size_t max_upload_bytes)
+    : remote_url_(std::move(remote_url)),
+      bearer_token_(std::move(bearer_token)),
+      max_upload_bytes_(max_upload_bytes) {}
 
-Manifest fetch_remote_manifest(const std::string &remote_url) {
-    HttpResponse response = request("GET", manifest_url(remote_url));
+Manifest HttpRemoteBackend::load_manifest() {
+    HttpResponse response = request("GET", manifest_url(remote_url_), bearer_token_);
 
     if (response.status != 200) {
         throw std::runtime_error("Failed to fetch remote manifest: HTTP " +
@@ -162,70 +176,56 @@ Manifest fetch_remote_manifest(const std::string &remote_url) {
     return parse_manifest(response.body);
 }
 
-void execute_http_actions(const std::vector<ManifestAction> &actions,
-                          const fs::path &local_root,
-                          const std::string &remote_url) {
-    for (const auto &action : actions) {
-        fs::path local_path = local_root / action.path;
-
-        switch (action.type) {
-        case ManifestActionType::Upload: {
-            std::string body = read_file(local_path);
-            HttpResponse response = request("PUT", file_url(remote_url, action.path), &body);
-
-            if (response.status < 200 || response.status >= 300) {
-                throw std::runtime_error("Upload failed for " + action.path + ": HTTP " +
-                                         std::to_string(response.status));
-            }
-
-            break;
-        }
-
-        case ManifestActionType::Download: {
-            HttpResponse response = request("GET", file_url(remote_url, action.path));
-
-            if (response.status != 200) {
-                throw std::runtime_error("Download failed for " + action.path + ": HTTP " +
-                                         std::to_string(response.status));
-            }
-
-            write_file(local_path, response.body, true);
-            break;
-        }
-
-        case ManifestActionType::DeleteLocal:
-            fs::remove(local_path);
-            break;
-
-        case ManifestActionType::DeleteRemote: {
-            HttpResponse response = request("DELETE", file_url(remote_url, action.path));
-
-            if (response.status < 200 || response.status >= 300) {
-                throw std::runtime_error("Remote delete failed for " + action.path + ": HTTP " +
-                                         std::to_string(response.status));
-            }
-
-            break;
-        }
-
-        case ManifestActionType::Conflict: {
-            HttpResponse response = request("GET", file_url(remote_url, action.path));
-
-            if (response.status == 404) {
-                break;
-            }
-
-            if (response.status != 200) {
-                throw std::runtime_error("Conflict download failed for " + action.path + ": HTTP " +
-                                         std::to_string(response.status));
-            }
-
-            write_file(remote_conflict_path(local_path), response.body, false);
-            break;
-        }
-
-        case ManifestActionType::Unchanged:
-            break;
-        }
+void HttpRemoteBackend::upload(const std::string &path, const fs::path &local_file) {
+    if (fs::file_size(local_file) > max_upload_bytes_) {
+        throw std::runtime_error("Upload exceeds maximum size: " + path);
     }
+
+    std::string body = read_file(local_file);
+    HttpResponse response = request("PUT", file_url(remote_url_, path), bearer_token_, &body);
+
+    if (response.status == 413) {
+        throw std::runtime_error("Upload rejected as too large: " + path);
+    }
+
+    if (response.status < 200 || response.status >= 300) {
+        throw std::runtime_error("Upload failed for " + path + ": HTTP " +
+                                 std::to_string(response.status));
+    }
+}
+
+void HttpRemoteBackend::download(const std::string &path, const fs::path &local_file) {
+    HttpResponse response = request("GET", file_url(remote_url_, path), bearer_token_);
+
+    if (response.status != 200) {
+        throw std::runtime_error("Download failed for " + path + ": HTTP " +
+                                 std::to_string(response.status));
+    }
+
+    write_file(local_file, response.body, true);
+}
+
+void HttpRemoteBackend::delete_remote(const std::string &path) {
+    HttpResponse response = request("DELETE", file_url(remote_url_, path), bearer_token_);
+
+    if (response.status < 200 || response.status >= 300) {
+        throw std::runtime_error("Remote delete failed for " + path + ": HTTP " +
+                                 std::to_string(response.status));
+    }
+}
+
+void HttpRemoteBackend::save_conflict_copy(const std::string &path,
+                                           const fs::path &local_conflict_path) {
+    HttpResponse response = request("GET", file_url(remote_url_, path), bearer_token_);
+
+    if (response.status == 404) {
+        return;
+    }
+
+    if (response.status != 200) {
+        throw std::runtime_error("Conflict download failed for " + path + ": HTTP " +
+                                 std::to_string(response.status));
+    }
+
+    write_file(local_conflict_path, response.body, false);
 }

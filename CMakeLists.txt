@@ -23,14 +23,16 @@ add_executable(obsidian-sync
     src/scanner.cpp
     src/sync_plan.cpp
     src/config.cpp
-    src/http_client.cpp
+    src/security.cpp
+    src/sync_service.cpp
+    src/local_remote_backend.cpp
+    src/http_remote_backend.cpp
     src/output.cpp
     src/http_server.cpp
     src/manifest.cpp
     src/manifest_action.cpp
     src/three_way_compare.cpp
     src/two_way_compare.cpp
-    src/sync_execute.cpp
 )
 
 target_link_libraries(
