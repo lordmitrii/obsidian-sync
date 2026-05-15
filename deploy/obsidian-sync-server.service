@@ -1,0 +1,16 @@
+[Unit]
+Description=Obsidian Sync HTTP Server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=obsidian-sync
+Group=obsidian-sync
+EnvironmentFile=/etc/obsidian-sync/env
+ExecStart=/usr/local/bin/obsidian-sync-server --server-root /var/lib/obsidian-sync --server-host 127.0.0.1 --server-port 38471
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

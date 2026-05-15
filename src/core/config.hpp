@@ -12,7 +12,7 @@ struct Config {
     std::string manifest_file_path;
     std::filesystem::path server_root;
     std::string server_host = "127.0.0.1";
-    int server_port = 8080;
+    int server_port = 38471;
     bool server_mode = false;
     bool compare_manifests = false;
     std::string compare_manifest_a;

@@ -1,0 +1,23 @@
+FROM --platform=linux/arm64 ubuntu:22.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y \
+    cmake \
+    g++ \
+    git \
+    libssl-dev \
+    libcurl4-openssl-dev \
+    libsqlite3-dev \
+    nlohmann-json3-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /src
+COPY CMakeLists.txt .
+COPY src/ src/
+
+RUN cmake -S . -B /build \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_EXE_LINKER_FLAGS="-static-libgcc -static-libstdc++" \
+    && cmake --build /build --target obsidian-sync-server -j$(nproc)
+
