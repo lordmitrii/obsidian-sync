@@ -12,6 +12,30 @@
 
 namespace fs = std::filesystem;
 
+static Manifest files_to_manifest(const std::vector<FileMeta> &files) {
+    Manifest manifest;
+
+    for (const auto &file : files) {
+        manifest[file.path] = file;
+    }
+
+    return manifest;
+}
+
+static Manifest load_base_manifest(Database &db) {
+    Manifest manifest;
+
+    for (const auto &path : db.get_all_paths()) {
+        auto file = db.get_file(path);
+
+        if (file.has_value()) {
+            manifest[path] = *file;
+        }
+    }
+
+    return manifest;
+}
+
 int main(int argc, char *argv[]) {
     try {
         Config config = parse_args(argc, argv);
@@ -43,25 +67,21 @@ int main(int argc, char *argv[]) {
             auto local_files = scan_vault(config.local_root);
             auto remote_files = scan_vault(config.remote_root);
 
-            Manifest local_manifest;
-            Manifest remote_manifest;
+            Database db(config.state_db_path);
+            db.initialize();
 
-            for (const auto &file : local_files) {
-                local_manifest[file.path] = file;
-            }
+            auto base_manifest = load_base_manifest(db);
+            auto local_manifest = files_to_manifest(local_files);
+            auto remote_manifest = files_to_manifest(remote_files);
 
-            for (const auto &file : remote_files) {
-                remote_manifest[file.path] = file;
-            }
-
-            auto actions = compare_manifests(local_manifest, remote_manifest);
+            auto actions = compare_manifests(base_manifest, local_manifest, remote_manifest);
 
             for (const auto &action : actions) {
                 std::cout << manifest_action_to_string(action.type) << " " << action.path << "\n";
             }
 
             if (config.apply) {
-                execute_manifest_actions(actions, config.local_root, config.remote_root);
+                std::cout << "--apply is not supported for local/remote sync planning yet\n";
             }
 
             return 0;

@@ -8,7 +8,10 @@
 enum class ManifestActionType {
     Upload,
     Download,
-    Conflict
+    DeleteLocal,
+    DeleteRemote,
+    Conflict,
+    Unchanged
 };
 
 struct ManifestAction {
@@ -17,6 +20,12 @@ struct ManifestAction {
 };
 
 std::vector<ManifestAction> compare_manifests(
+    const Manifest& local,
+    const Manifest& remote
+);
+
+std::vector<ManifestAction> compare_manifests(
+    const Manifest& base,
     const Manifest& local,
     const Manifest& remote
 );

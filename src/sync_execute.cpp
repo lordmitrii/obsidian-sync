@@ -44,6 +44,11 @@ void execute_manifest_actions(const std::vector<ManifestAction> &actions,
 
             break;
         }
+
+        case ManifestActionType::DeleteLocal:
+        case ManifestActionType::DeleteRemote:
+        case ManifestActionType::Unchanged:
+            break;
         }
     }
 }
