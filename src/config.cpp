@@ -79,6 +79,13 @@ Config parse_args(int argc, char *argv[]) {
 
             config.remote_root = argv[++i];
 
+        } else if (arg == "--remote-url") {
+            if (i + 1 >= argc) {
+                throw std::runtime_error("--remote-url requires a URL");
+            }
+
+            config.remote_url = argv[++i];
+
         } else if (arg == "--apply") {
             config.apply = true;
         } else {
@@ -87,9 +94,9 @@ Config parse_args(int argc, char *argv[]) {
     }
 
     if (!config.compare_manifests && config.vault_path.empty() && config.server_root.empty() &&
-        (config.local_root.empty() || config.remote_root.empty())) {
+        (config.local_root.empty() || (config.remote_root.empty() && config.remote_url.empty()))) {
         throw std::runtime_error("Missing required argument: --vault, --server-root, "
-                                 "--compare-manifests, or --local-root with --remote-root");
+                                 "--compare-manifests, or --local-root with --remote-root/--remote-url");
     }
     return config;
 }

@@ -7,6 +7,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 include(FetchContent)
 
 find_package(OpenSSL REQUIRED)
+find_package(CURL REQUIRED)
 
 FetchContent_Declare(
     cpp-httplib
@@ -22,6 +23,7 @@ add_executable(obsidian-sync
     src/scanner.cpp
     src/sync_plan.cpp
     src/config.cpp
+    src/http_client.cpp
     src/output.cpp
     src/http_server.cpp
     src/manifest.cpp
@@ -35,6 +37,7 @@ target_link_libraries(
     obsidian-sync
     OpenSSL::SSL
     OpenSSL::Crypto
+    CURL::libcurl
     httplib::httplib
     sqlite3
 )

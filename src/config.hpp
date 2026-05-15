@@ -19,6 +19,7 @@ struct Config {
     std::string compare_manifest_b;
     std::filesystem::path local_root;
     std::filesystem::path remote_root;
+    std::string remote_url;
     bool apply = false;
 };
 

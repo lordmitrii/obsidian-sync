@@ -1,5 +1,6 @@
 #include "config.hpp"
 #include "db.hpp"
+#include "http_client.hpp"
 #include "http_server.hpp"
 #include "manifest.hpp"
 #include "manifest_action.hpp"
@@ -67,6 +68,35 @@ int main(int argc, char *argv[]) {
 
             for (const auto &action : actions) {
                 std::cout << manifest_action_to_string(action.type) << " " << action.path << "\n";
+            }
+
+            return 0;
+        }
+
+        if (!config.local_root.empty() && !config.remote_url.empty()) {
+            if (!fs::exists(config.local_root) || !fs::is_directory(config.local_root)) {
+                std::cerr << "Local root does not exist or is not a directory\n";
+                return 1;
+            }
+
+            auto local_files = scan_vault(config.local_root);
+
+            Database db(config.state_db_path);
+            db.initialize();
+
+            auto base_manifest = db.load_as_manifest();
+            auto local_manifest = files_to_manifest(local_files);
+            auto remote_manifest = fetch_remote_manifest(config.remote_url);
+
+            auto actions = compare_three_way(base_manifest, local_manifest, remote_manifest);
+
+            for (const auto &action : actions) {
+                std::cout << manifest_action_to_string(action.type) << " " << action.path << "\n";
+            }
+
+            if (config.apply) {
+                execute_http_actions(actions, config.local_root, config.remote_url);
+                update_base_state_after_apply(db, actions, config.local_root);
             }
 
             return 0;
