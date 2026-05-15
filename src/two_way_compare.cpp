@@ -1,0 +1,31 @@
+#include "two_way_compare.hpp"
+
+std::vector<ManifestAction> compare_two_way(
+    const Manifest& local,
+    const Manifest& remote
+) {
+    std::vector<ManifestAction> actions;
+
+    for (const auto& [path, local_file] : local) {
+        auto it = remote.find(path);
+
+        if (it == remote.end()) {
+            actions.push_back({ManifestActionType::Upload, path});
+            continue;
+        }
+
+        const auto& remote_file = it->second;
+
+        if (local_file.hash != remote_file.hash) {
+            actions.push_back({ManifestActionType::Conflict, path});
+        }
+    }
+
+    for (const auto& [path, remote_file] : remote) {
+        if (local.find(path) == local.end()) {
+            actions.push_back({ManifestActionType::Download, path});
+        }
+    }
+
+    return actions;
+}

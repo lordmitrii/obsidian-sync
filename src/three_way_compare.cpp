@@ -1,39 +1,13 @@
-#include "manifest_compare.hpp"
+#include "three_way_compare.hpp"
 
 #include <algorithm>
 #include <unordered_set>
-
-std::string manifest_action_to_string(ManifestActionType type) {
-    switch (type) {
-        case ManifestActionType::Upload:
-            return "upload";
-        case ManifestActionType::Download:
-            return "download";
-        case ManifestActionType::DeleteLocal:
-            return "delete-local";
-        case ManifestActionType::DeleteRemote:
-            return "delete-remote";
-        case ManifestActionType::Conflict:
-            return "conflict";
-        case ManifestActionType::Unchanged:
-            return "unchanged";
-    }
-
-    return "unknown";
-}
 
 static bool same_hash(const FileMeta& left, const FileMeta& right) {
     return left.hash == right.hash;
 }
 
-std::vector<ManifestAction> compare_manifests(
-    const Manifest& local,
-    const Manifest& remote
-) {
-    return compare_manifests(Manifest{}, local, remote);
-}
-
-std::vector<ManifestAction> compare_manifests(
+std::vector<ManifestAction> compare_three_way(
     const Manifest& base,
     const Manifest& local,
     const Manifest& remote

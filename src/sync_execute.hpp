@@ -1,6 +1,6 @@
 #pragma once
 
-#include "manifest_compare.hpp"
+#include "manifest_action.hpp"
 
 #include <filesystem>
 #include <vector>

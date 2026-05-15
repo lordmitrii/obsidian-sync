@@ -15,7 +15,9 @@ add_executable(obsidian-sync
     src/config.cpp
     src/output.cpp
     src/manifest.cpp
-    src/manifest_compare.cpp
+    src/manifest_action.cpp
+    src/three_way_compare.cpp
+    src/two_way_compare.cpp
     src/sync_execute.cpp
 )
 

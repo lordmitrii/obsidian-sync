@@ -1,11 +1,13 @@
 #include "config.hpp"
 #include "db.hpp"
 #include "manifest.hpp"
-#include "manifest_compare.hpp"
+#include "manifest_action.hpp"
 #include "output.hpp"
 #include "scanner.hpp"
 #include "sync_execute.hpp"
 #include "sync_plan.hpp"
+#include "three_way_compare.hpp"
+#include "two_way_compare.hpp"
 
 #include <filesystem>
 #include <iostream>
@@ -30,7 +32,7 @@ int main(int argc, char *argv[]) {
             auto local = load_manifest(config.compare_manifest_a);
             auto remote = load_manifest(config.compare_manifest_b);
 
-            auto actions = compare_manifests(local, remote);
+            auto actions = compare_two_way(local, remote);
 
             for (const auto &action : actions) {
                 std::cout << manifest_action_to_string(action.type) << " " << action.path << "\n";
@@ -60,7 +62,7 @@ int main(int argc, char *argv[]) {
             auto local_manifest = files_to_manifest(local_files);
             auto remote_manifest = files_to_manifest(remote_files);
 
-            auto actions = compare_manifests(base_manifest, local_manifest, remote_manifest);
+            auto actions = compare_three_way(base_manifest, local_manifest, remote_manifest);
 
             for (const auto &action : actions) {
                 std::cout << manifest_action_to_string(action.type) << " " << action.path << "\n";
