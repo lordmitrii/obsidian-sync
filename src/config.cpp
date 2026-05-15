@@ -25,6 +25,14 @@ Config parse_args(int argc, char *argv[]) {
             config.dry_run = true;
         } else if (arg == "--json") {
             config.json_output = true;
+        } else if (arg == "--manifest") {
+            config.manifest_output = true;
+        } else if (arg == "--manifest-file") {
+            if (i + 1 >= argc) {
+                throw std::runtime_error("--manifest-file requires a path");
+            }
+
+            config.manifest_file_path = argv[++i];
         } else {
             throw std::runtime_error("Unknown argument: " + arg);
         }

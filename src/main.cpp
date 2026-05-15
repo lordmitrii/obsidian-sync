@@ -29,6 +29,18 @@ int main(int argc, char *argv[]) {
         db.initialize();
 
         auto files = scan_vault(vault_path);
+
+        if (!config.manifest_file_path.empty()) {
+            write_json_manifest_to_file(files, config.manifest_file_path);
+            std::cout << "Wrote manifest to " << config.manifest_file_path << "\n";
+            return 0;
+        }
+
+        if (config.manifest_output) {
+            print_json_manifest(files);
+            return 0;
+        }
+
         auto actions = build_sync_plan(db, files);
 
         if (config.json_output) {

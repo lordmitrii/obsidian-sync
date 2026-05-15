@@ -9,6 +9,7 @@ struct Config {
     bool dry_run = false;
     bool json_output = false;
     bool manifest_output = false;
+    std::string manifest_file_path;
 };
 
 Config parse_args(int argc, char *argv[]);
