@@ -1,15 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# ── obsidian-sync client installer ───────────────────────────────────────────
-# Syncs an entire folder (all vaults inside it) with one server root.
-# Run from the repo root on any machine you want to sync from.
-#
-# Usage:
-#   ./install-client.sh
-#   OBSIDIAN_SYNC_TOKEN=xxx OBSIDIAN_SYNC_REMOTE_URL=https://... ./install-client.sh
-# ─────────────────────────────────────────────────────────────────────────────
-
 REMOTE_URL="${OBSIDIAN_SYNC_REMOTE_URL:-https://sync.utils.pemsoft.org}"
 INSTALL_DIR="$HOME/.local/bin"
 STATE_DIR="$HOME/.local/share/obsidian-sync"
@@ -19,7 +10,6 @@ die()    { echo "error: $*" >&2; exit 1; }
 info()   { echo "  $*"; }
 header() { echo ""; echo "── $*"; }
 
-# ── locate default obsidian folder ───────────────────────────────────────────
 if [[ "$OS" == "Linux" ]]; then
     DEFAULT_ROOT="$HOME/Documents/Obsidian"
     OBSIDIAN_BIN=$(command -v obsidian 2>/dev/null || true)
@@ -32,13 +22,11 @@ else
     die "unsupported OS: $OS (Linux and macOS only)"
 fi
 
-# ── banner ────────────────────────────────────────────────────────────────────
 echo ""
 echo "obsidian-sync client setup"
 echo "server: $REMOTE_URL"
 echo ""
 
-# ── inputs ────────────────────────────────────────────────────────────────────
 read -rp "Obsidian folder [$DEFAULT_ROOT]: " ROOT_PATH
 ROOT_PATH="${ROOT_PATH:-$DEFAULT_ROOT}"
 
@@ -72,7 +60,6 @@ info "remote:   $REMOTE_URL"
 info "state:    $STATE_DB"
 info "interval: ${INTERVAL}s"
 
-# ── build ─────────────────────────────────────────────────────────────────────
 BIN="$INSTALL_DIR/obsidian-sync-client"
 
 header "build"
@@ -98,7 +85,6 @@ fi
 
 mkdir -p "$STATE_DIR"
 
-# ── service setup ─────────────────────────────────────────────────────────────
 header "service"
 
 SERVICE_NAME="obsidian-sync"
@@ -186,7 +172,6 @@ EOF
     info "logs:  tail -f $LOG_OUT $LOG_ERR"
 fi
 
-# ── obsidian hook ─────────────────────────────────────────────────────────────
 if $HOOK_OBSIDIAN; then
     header "obsidian hook"
 
@@ -250,7 +235,6 @@ EOF
     fi
 fi
 
-# ── first sync preview ────────────────────────────────────────────────────────
 header "first sync preview (dry run)"
 echo ""
 OBSIDIAN_SYNC_TOKEN="$OBSIDIAN_SYNC_TOKEN" \
