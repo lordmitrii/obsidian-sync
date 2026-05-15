@@ -1,6 +1,8 @@
 #pragma once
 
 #include "filemeta.hpp"
+#include "manifest.hpp"
+
 #include <optional>
 #include <sqlite3.h>
 #include <string>
@@ -15,6 +17,7 @@ class Database {
     void save_file(const FileMeta &file);
     std::optional<FileMeta> get_file(const std::string &path);
     std::vector<std::string> get_all_paths();
+    Manifest load_as_manifest();
     void delete_file(const std::string &path);
 
   private:

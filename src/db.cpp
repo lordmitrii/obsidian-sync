@@ -109,6 +109,31 @@ std::vector<std::string> Database::get_all_paths() {
     return paths;
 }
 
+Manifest Database::load_as_manifest() {
+    const char *sql = "SELECT path, hash, size, modified_time FROM files;";
+
+    sqlite3_stmt *stmt = nullptr;
+
+    if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK) {
+        throw std::runtime_error(sqlite3_errmsg(db));
+    }
+
+    Manifest manifest;
+
+    while (sqlite3_step(stmt) == SQLITE_ROW) {
+        FileMeta file;
+        file.path = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 0));
+        file.hash = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 1));
+        file.size = static_cast<std::uintmax_t>(sqlite3_column_int64(stmt, 2));
+        file.modified_time = sqlite3_column_int64(stmt, 3);
+
+        manifest[file.path] = file;
+    }
+
+    sqlite3_finalize(stmt);
+    return manifest;
+}
+
 void Database::delete_file(const std::string &path) {
     const char *sql = "DELETE FROM files WHERE path = ?;";
 

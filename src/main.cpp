@@ -22,20 +22,6 @@ static Manifest files_to_manifest(const std::vector<FileMeta> &files) {
     return manifest;
 }
 
-static Manifest load_base_manifest(Database &db) {
-    Manifest manifest;
-
-    for (const auto &path : db.get_all_paths()) {
-        auto file = db.get_file(path);
-
-        if (file.has_value()) {
-            manifest[path] = *file;
-        }
-    }
-
-    return manifest;
-}
-
 int main(int argc, char *argv[]) {
     try {
         Config config = parse_args(argc, argv);
@@ -70,7 +56,7 @@ int main(int argc, char *argv[]) {
             Database db(config.state_db_path);
             db.initialize();
 
-            auto base_manifest = load_base_manifest(db);
+            auto base_manifest = db.load_as_manifest();
             auto local_manifest = files_to_manifest(local_files);
             auto remote_manifest = files_to_manifest(remote_files);
 
