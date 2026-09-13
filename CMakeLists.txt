@@ -4,6 +4,10 @@ project(obsidian_sync)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    add_compile_options(-Wall -Wextra)
+endif()
+
 include(FetchContent)
 
 find_package(OpenSSL REQUIRED)
@@ -65,3 +69,9 @@ target_link_libraries(obsidian-sync-client PRIVATE obsidian-sync-core)
 
 add_executable(obsidian-sync-server src/app/server_main.cpp)
 target_link_libraries(obsidian-sync-server PRIVATE obsidian-sync-core)
+
+enable_testing()
+
+add_executable(unit-tests tests/unit/test_compare.cpp)
+target_link_libraries(unit-tests PRIVATE obsidian-sync-core)
+add_test(NAME unit-tests COMMAND unit-tests)
