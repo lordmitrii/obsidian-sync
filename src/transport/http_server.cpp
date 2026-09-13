@@ -119,7 +119,8 @@ static bool is_authorized(const httplib::Request &req, const std::string &bearer
         return false;
     }
 
-    return req.get_header_value("Authorization") == bearer_authorization_header(bearer_token);
+    return constant_time_equals(req.get_header_value("Authorization"),
+                                bearer_authorization_header(bearer_token));
 }
 
 void run_http_server(const fs::path &server_root,
