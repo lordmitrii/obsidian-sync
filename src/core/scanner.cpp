@@ -6,19 +6,35 @@
 namespace fs = std::filesystem;
 
 bool should_ignore(const fs::path &path) {
-    std::string s = path.string();
+    if (path.filename() == ".DS_Store")
+        return true;
 
-    if (s.find(".DS_Store") != std::string::npos)
+    bool in_obsidian_dir = false;
+    bool in_trash_dir = false;
+
+    for (const auto &part : path) {
+        if (part == ".obsidian")
+            in_obsidian_dir = true;
+        if (part == ".trash")
+            in_trash_dir = true;
+    }
+
+    if (in_trash_dir)
         return true;
-    if (s.find(".obsidian/workspace.json") != std::string::npos)
-        return true;
-    if (s.find(".obsidian/workspace-mobile.json") != std::string::npos)
-        return true;
-    if (s.find(".obsidian/cache") != std::string::npos)
-        return true;
-    if (s.find(".conflict-remote") != std::string::npos)
-        return true;
-    if (s.find(".trash") != std::string::npos)
+
+    if (in_obsidian_dir) {
+        const std::string filename = path.filename().string();
+
+        if (filename == "workspace.json" || filename == "workspace-mobile.json")
+            return true;
+
+        for (const auto &part : path) {
+            if (part == "cache")
+                return true;
+        }
+    }
+
+    if (path.filename().string().find(".conflict-remote") != std::string::npos)
         return true;
 
     if (path.extension() == ".tmp")
