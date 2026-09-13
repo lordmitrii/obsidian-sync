@@ -11,6 +11,11 @@ int main(int argc, char *argv[]) {
     try {
         Config config = parse_args(argc, argv);
 
+        if (config.help) {
+            print_usage();
+            return 0;
+        }
+
         if (!config.server_mode) {
             std::cerr << "Missing required argument: --server-root\n";
             return 1;

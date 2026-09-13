@@ -1,7 +1,42 @@
 #include "config.hpp"
 
+#include <iostream>
 #include <stdexcept>
 #include <string>
+
+void print_usage() {
+    std::cout <<
+        "obsidian-sync client/server\n"
+        "\n"
+        "Client usage:\n"
+        "  obsidian-sync-client --vault <path> [--dry-run] [--json]\n"
+        "  obsidian-sync-client --vault <path> --manifest | --manifest-file <path>\n"
+        "  obsidian-sync-client --compare-manifests <a> <b>\n"
+        "  obsidian-sync-client --local-root <path> (--remote-root <path> | --remote-url <url>)\n"
+        "                        [--state <path>] [--apply] [--watch --interval <seconds>]\n"
+        "\n"
+        "Server usage:\n"
+        "  obsidian-sync-server --server-root <path> [--server-host <host>] [--server-port <port>]\n"
+        "\n"
+        "Options:\n"
+        "  --vault <path>              Vault directory to scan\n"
+        "  --state <path>              State database path (default: state.db)\n"
+        "  --dry-run                   Compute the plan without touching the database\n"
+        "  --json                      Print output as JSON\n"
+        "  --manifest                  Print a manifest of the vault instead of a sync plan\n"
+        "  --manifest-file <path>      Write a manifest of the vault to a file\n"
+        "  --compare-manifests <a> <b> Diff two saved manifests\n"
+        "  --local-root <path>         Local vault to sync\n"
+        "  --remote-root <path>        Remote directory to sync against (for testing)\n"
+        "  --remote-url <url>          Remote HTTP server to sync against\n"
+        "  --apply                     Execute the sync plan\n"
+        "  --watch                     Keep syncing on an interval (requires --apply)\n"
+        "  --interval <seconds>        Seconds between watch runs (default: 30)\n"
+        "  --server-root <path>        Directory to serve\n"
+        "  --server-host <host>        Address to bind (default: 127.0.0.1)\n"
+        "  --server-port <port>        Port to bind (default: 38471)\n"
+        "  --help, -h                  Show this message\n";
+}
 
 Config parse_args(int argc, char *argv[]) {
     Config config;
@@ -9,7 +44,10 @@ Config parse_args(int argc, char *argv[]) {
     for (int i = 1; i < argc; ++i) {
         std::string arg = argv[i];
 
-        if (arg == "--vault") {
+        if (arg == "--help" || arg == "-h") {
+            config.help = true;
+            return config;
+        } else if (arg == "--vault") {
             if (i + 1 >= argc) {
                 throw std::runtime_error("--vault requires a path");
             }

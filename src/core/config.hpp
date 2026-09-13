@@ -4,6 +4,7 @@
 #include <string>
 
 struct Config {
+    bool help = false;
     std::filesystem::path vault_path;
     std::string state_db_path = "state.db";
     bool dry_run = false;
@@ -26,3 +27,4 @@ struct Config {
 };
 
 Config parse_args(int argc, char *argv[]);
+void print_usage();
