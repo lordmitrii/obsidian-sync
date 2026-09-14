@@ -12,6 +12,7 @@
 #include <mutex>
 #include <nlohmann/json.hpp>
 #include <sstream>
+#include <unordered_map>
 
 namespace fs = std::filesystem;
 using json = nlohmann::json;
@@ -22,27 +23,29 @@ class RateLimiter {
     explicit RateLimiter(int max_requests_per_minute)
         : max_requests_per_minute_(max_requests_per_minute) {}
 
-    bool allow() {
+    bool allow(const std::string &client_key) {
         std::lock_guard<std::mutex> lock(mutex_);
         auto now = Clock::now();
         auto window_start = now - std::chrono::minutes(1);
 
-        while (!requests_.empty() && requests_.front() < window_start) {
-            requests_.pop_front();
+        auto &requests = requests_by_client_[client_key];
+
+        while (!requests.empty() && requests.front() < window_start) {
+            requests.pop_front();
         }
 
-        if (static_cast<int>(requests_.size()) >= max_requests_per_minute_) {
+        if (static_cast<int>(requests.size()) >= max_requests_per_minute_) {
             return false;
         }
 
-        requests_.push_back(now);
+        requests.push_back(now);
         return true;
     }
 
   private:
     int max_requests_per_minute_;
     std::mutex mutex_;
-    std::deque<Clock::time_point> requests_;
+    std::unordered_map<std::string, std::deque<Clock::time_point>> requests_by_client_;
 };
 
 static bool is_safe_relative_path(const std::string &path) {
@@ -135,7 +138,7 @@ void run_http_server(const fs::path &server_root,
     server.set_payload_max_length(max_upload_bytes);
     server.set_pre_routing_handler(
         [&bearer_token, &rate_limiter](const httplib::Request &req, httplib::Response &res) {
-            if (!rate_limiter.allow()) {
+            if (!rate_limiter.allow(req.remote_addr)) {
                 res.status = 429;
                 res.set_content("Too many requests\n", "text/plain");
                 return httplib::Server::HandlerResponse::Handled;
