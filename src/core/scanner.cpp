@@ -41,6 +41,8 @@ bool should_ignore(const fs::path &path) {
         return true;
     if (path.extension() == ".swp")
         return true;
+    if (path.extension() == ".crswap")
+        return true;
 
     return false;
 }
