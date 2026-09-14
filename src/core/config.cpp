@@ -89,7 +89,12 @@ Config parse_args(int argc, char *argv[]) {
                 throw std::runtime_error("--server-port requires a port");
             }
 
-            config.server_port = std::stoi(argv[++i]);
+            try {
+                config.server_port = std::stoi(argv[i + 1]);
+            } catch (const std::exception &) {
+                throw std::runtime_error("--server-port must be a number");
+            }
+            ++i;
 
             if (config.server_port <= 0 || config.server_port > 65535) {
                 throw std::runtime_error("--server-port must be between 1 and 65535");
@@ -133,7 +138,12 @@ Config parse_args(int argc, char *argv[]) {
                 throw std::runtime_error("--interval requires seconds");
             }
 
-            config.watch_interval_seconds = std::stoi(argv[++i]);
+            try {
+                config.watch_interval_seconds = std::stoi(argv[i + 1]);
+            } catch (const std::exception &) {
+                throw std::runtime_error("--interval must be a number");
+            }
+            ++i;
 
             if (config.watch_interval_seconds <= 0) {
                 throw std::runtime_error("--interval must be greater than zero");
