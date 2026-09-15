@@ -20,7 +20,12 @@ namespace fs = std::filesystem;
 
 static void run_watch_loop(const Config &config, SyncService &sync_service) {
     while (true) {
-        sync_service.run_once();
+        try {
+            sync_service.run_once();
+        } catch (const std::exception &e) {
+            std::cerr << "Sync run failed, will retry next interval: " << e.what() << "\n";
+        }
+
         std::cout << "Sleeping for " << config.watch_interval_seconds << " seconds\n";
         std::cout.flush();
         std::this_thread::sleep_for(std::chrono::seconds(config.watch_interval_seconds));
