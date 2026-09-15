@@ -4,6 +4,23 @@
 #include <stdexcept>
 #include <string>
 
+static int parse_int_strict(const std::string &text, const std::string &flag_name) {
+    try {
+        std::size_t consumed = 0;
+        int value = std::stoi(text, &consumed);
+
+        if (consumed != text.size()) {
+            throw std::runtime_error(flag_name + " must be a number");
+        }
+
+        return value;
+    } catch (const std::runtime_error &) {
+        throw;
+    } catch (const std::exception &) {
+        throw std::runtime_error(flag_name + " must be a number");
+    }
+}
+
 void print_usage() {
     std::cout <<
         "obsidian-sync client/server\n"
@@ -89,11 +106,7 @@ Config parse_args(int argc, char *argv[]) {
                 throw std::runtime_error("--server-port requires a port");
             }
 
-            try {
-                config.server_port = std::stoi(argv[i + 1]);
-            } catch (const std::exception &) {
-                throw std::runtime_error("--server-port must be a number");
-            }
+            config.server_port = parse_int_strict(argv[i + 1], "--server-port");
             ++i;
 
             if (config.server_port <= 0 || config.server_port > 65535) {
@@ -138,11 +151,7 @@ Config parse_args(int argc, char *argv[]) {
                 throw std::runtime_error("--interval requires seconds");
             }
 
-            try {
-                config.watch_interval_seconds = std::stoi(argv[i + 1]);
-            } catch (const std::exception &) {
-                throw std::runtime_error("--interval must be a number");
-            }
+            config.watch_interval_seconds = parse_int_strict(argv[i + 1], "--interval");
             ++i;
 
             if (config.watch_interval_seconds <= 0) {
