@@ -79,3 +79,7 @@ add_test(NAME unit-tests COMMAND unit-tests)
 add_executable(scanner-tests tests/unit/test_scanner.cpp)
 target_link_libraries(scanner-tests PRIVATE obsidian-sync-core)
 add_test(NAME scanner-tests COMMAND scanner-tests)
+
+add_executable(config-tests tests/unit/test_config.cpp)
+target_link_libraries(config-tests PRIVATE obsidian-sync-core)
+add_test(NAME config-tests COMMAND config-tests)
