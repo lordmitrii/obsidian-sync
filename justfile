@@ -16,11 +16,12 @@ build:
     @echo "Binary ready: /tmp/{{bin}}-arm64 ($(file /tmp/{{bin}}-arm64 | grep -o 'ARM aarch64'))"
 
 deploy: build
-    scp /tmp/{{bin}}-arm64 {{host}}:/tmp/{{bin}}
-    ssh {{host}} "sudo install -m 0755 /tmp/{{bin}} /usr/local/bin/{{bin}} && sudo systemctl restart {{bin}}.service"
-    @just status
+    @just _install-and-restart
 
 push:
+    @just _install-and-restart
+
+_install-and-restart:
     scp /tmp/{{bin}}-arm64 {{host}}:/tmp/{{bin}}
     ssh {{host}} "sudo install -m 0755 /tmp/{{bin}} /usr/local/bin/{{bin}} && sudo systemctl restart {{bin}}.service"
     @just status
