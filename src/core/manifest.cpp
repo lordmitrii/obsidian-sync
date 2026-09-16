@@ -13,21 +13,25 @@ Manifest load_manifest(const std::string& path) {
         throw std::runtime_error("Could not open manifest: " + path);
     }
 
-    json root;
-    file >> root;
+    try {
+        json root;
+        file >> root;
 
-    Manifest manifest;
+        Manifest manifest;
 
-    for (const auto& item : root["files"]) {
-        FileMeta meta;
+        for (const auto& item : root["files"]) {
+            FileMeta meta;
 
-        meta.path = item["path"];
-        meta.hash = item["hash"];
-        meta.size = item["size"];
-        meta.modified_time = item["modified_time"];
+            meta.path = item["path"];
+            meta.hash = item["hash"];
+            meta.size = item["size"];
+            meta.modified_time = item["modified_time"];
 
-        manifest[meta.path] = meta;
+            manifest[meta.path] = meta;
+        }
+
+        return manifest;
+    } catch (const json::exception& error) {
+        throw std::runtime_error("Malformed manifest " + path + ": " + error.what());
     }
-
-    return manifest;
 }
