@@ -1,5 +1,6 @@
 #include "http_server.hpp"
 
+#include "output.hpp"
 #include "scanner.hpp"
 #include "security.hpp"
 
@@ -10,12 +11,10 @@
 #include <httplib.h>
 #include <iostream>
 #include <mutex>
-#include <nlohmann/json.hpp>
 #include <sstream>
 #include <unordered_map>
 
 namespace fs = std::filesystem;
-using json = nlohmann::json;
 using Clock = std::chrono::steady_clock;
 
 class RateLimiter {
@@ -66,20 +65,6 @@ static bool is_safe_relative_path(const std::string &path) {
     }
 
     return true;
-}
-
-static json manifest_to_json(const std::vector<FileMeta> &files) {
-    json root;
-    root["files"] = json::array();
-
-    for (const auto &file : files) {
-        root["files"].push_back({{"path", file.path},
-                                 {"hash", file.hash},
-                                 {"size", file.size},
-                                 {"modified_time", file.modified_time}});
-    }
-
-    return root;
 }
 
 static bool read_file(const fs::path &path, std::string &body) {
