@@ -87,3 +87,7 @@ add_test(NAME config-tests COMMAND config-tests)
 add_executable(security-tests tests/unit/test_security.cpp)
 target_link_libraries(security-tests PRIVATE obsidian-sync-core)
 add_test(NAME security-tests COMMAND security-tests)
+
+add_executable(manifest-tests tests/unit/test_manifest.cpp)
+target_link_libraries(manifest-tests PRIVATE obsidian-sync-core)
+add_test(NAME manifest-tests COMMAND manifest-tests)
