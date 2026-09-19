@@ -95,3 +95,7 @@ add_test(NAME manifest-tests COMMAND manifest-tests)
 add_executable(plan-tests tests/unit/test_plans.cpp)
 target_link_libraries(plan-tests PRIVATE obsidian-sync-core)
 add_test(NAME plan-tests COMMAND plan-tests)
+
+add_executable(hasher-tests tests/unit/test_hasher.cpp)
+target_link_libraries(hasher-tests PRIVATE obsidian-sync-core)
+add_test(NAME hasher-tests COMMAND hasher-tests)
