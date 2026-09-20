@@ -19,13 +19,13 @@ Manifest load_manifest(const std::string& path) {
 
         Manifest manifest;
 
-        for (const auto& item : root["files"]) {
+        for (const auto& item : root.at("files")) {
             FileMeta meta;
 
-            meta.path = item["path"];
-            meta.hash = item["hash"];
-            meta.size = item["size"];
-            meta.modified_time = item["modified_time"];
+            meta.path = item.at("path");
+            meta.hash = item.at("hash");
+            meta.size = item.at("size");
+            meta.modified_time = item.at("modified_time");
 
             manifest[meta.path] = meta;
         }
