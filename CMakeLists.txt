@@ -103,3 +103,7 @@ add_test(NAME hasher-tests COMMAND hasher-tests)
 add_executable(output-tests tests/unit/test_output.cpp)
 target_link_libraries(output-tests PRIVATE obsidian-sync-core)
 add_test(NAME output-tests COMMAND output-tests)
+
+add_executable(db-tests tests/unit/test_db.cpp)
+target_link_libraries(db-tests PRIVATE obsidian-sync-core)
+add_test(NAME db-tests COMMAND db-tests)
