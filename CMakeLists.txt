@@ -111,3 +111,7 @@ add_test(NAME db-tests COMMAND db-tests)
 add_executable(local-backend-tests tests/unit/test_local_backend.cpp)
 target_link_libraries(local-backend-tests PRIVATE obsidian-sync-core)
 add_test(NAME local-backend-tests COMMAND local-backend-tests)
+
+add_executable(sync-service-tests tests/unit/test_sync_service.cpp)
+target_link_libraries(sync-service-tests PRIVATE obsidian-sync-core)
+add_test(NAME sync-service-tests COMMAND sync-service-tests)
