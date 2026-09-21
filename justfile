@@ -9,7 +9,7 @@ default:
     @just --list
 
 test:
-    docker run --rm -v "$(pwd)":/src:ro ubuntu:24.04 bash -c "apt-get update -qq && apt-get install -y -qq cmake g++ git libssl-dev libcurl4-openssl-dev libsqlite3-dev ca-certificates >/dev/null && cp -r /src /w && cd /w && cmake -S . -B build >/dev/null && cmake --build build -j && ctest --test-dir build --output-on-failure"
+    docker run --rm -v "$(pwd)":/src:ro ubuntu:24.04 bash -c "apt-get update -qq && apt-get install -y -qq cmake g++ git libssl-dev libcurl4-openssl-dev libsqlite3-dev ca-certificates >/dev/null && cp -r /src /w && cd /w && cmake -S . -B build >/dev/null && cmake --build build -j && ctest --test-dir build --output-on-failure && tests/http-smoke.sh"
 
 build:
     docker build --platform linux/arm64 -f Dockerfile.arm64 -t {{image}} .
