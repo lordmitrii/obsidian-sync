@@ -46,10 +46,10 @@ struct Fixture {
 
     ~Fixture() { fs::remove_all(root); }
 
-    void sync() {
+    bool sync() {
         LocalRemoteBackend backend(remote);
         SyncService service(local, state, backend, true);
-        service.run_once();
+        return service.run_once();
     }
 };
 
@@ -123,6 +123,26 @@ static void test_conflict_keeps_local_and_saves_remote_copy() {
            "conflict_saves_remote_copy");
 }
 
+static void test_one_failed_action_does_not_block_the_others() {
+    Fixture f("partial-failure");
+    write_file(f.local / "good.md", "v1");
+    write_file(f.local / "bad.md", "v1");
+    // A directory in place of the remote file makes the upload fail.
+    fs::create_directories(f.remote / "bad.md");
+
+    bool ok = f.sync();
+
+    expect(!ok, "run_once_reports_failure_when_an_action_fails");
+    expect(read_file(f.remote / "good.md") == "v1", "other_upload_still_applied");
+    expect(fs::is_directory(f.remote / "bad.md"), "failed_upload_left_remote_untouched");
+
+    fs::remove_all(f.remote / "bad.md");
+    bool retried_ok = f.sync();
+
+    expect(retried_ok, "failed_action_is_retried_next_run");
+    expect(read_file(f.remote / "bad.md") == "v1", "retried_upload_eventually_applied");
+}
+
 int main() {
     test_first_sync_uploads_and_downloads();
     test_dry_run_changes_nothing();
@@ -130,6 +150,7 @@ int main() {
     test_local_delete_propagates();
     test_remote_delete_propagates();
     test_conflict_keeps_local_and_saves_remote_copy();
+    test_one_failed_action_does_not_block_the_others();
 
     if (failures != 0) {
         std::cerr << failures << " test(s) failed\n";
