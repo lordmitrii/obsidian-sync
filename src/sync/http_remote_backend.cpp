@@ -1,5 +1,6 @@
 #include "http_remote_backend.hpp"
 
+#include "atomic_file.hpp"
 #include "security.hpp"
 
 #include <cstring>
@@ -159,23 +160,11 @@ static std::string read_file(const fs::path &path) {
 }
 
 static void write_file(const fs::path &path, const std::string &body, bool overwrite) {
-    fs::create_directories(path.parent_path());
-
     if (!overwrite && fs::exists(path)) {
         throw std::runtime_error("Refusing to overwrite file: " + path.string());
     }
 
-    std::ofstream out(path, std::ios::binary);
-
-    if (!out) {
-        throw std::runtime_error("Failed to open local file for writing: " + path.string());
-    }
-
-    out.write(body.data(), static_cast<std::streamsize>(body.size()));
-
-    if (!out.good()) {
-        throw std::runtime_error("Failed to write local file: " + path.string());
-    }
+    atomic_write_file(path, body);
 }
 
 HttpRemoteBackend::HttpRemoteBackend(std::string remote_url,
