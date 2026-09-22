@@ -28,6 +28,7 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(cpp-httplib nlohmann_json)
 
 add_library(obsidian-sync-core
+    src/core/atomic_file.cpp
     src/core/config.cpp
     src/core/db.cpp
     src/core/hasher.cpp
@@ -115,3 +116,7 @@ add_test(NAME local-backend-tests COMMAND local-backend-tests)
 add_executable(sync-service-tests tests/unit/test_sync_service.cpp)
 target_link_libraries(sync-service-tests PRIVATE obsidian-sync-core)
 add_test(NAME sync-service-tests COMMAND sync-service-tests)
+
+add_executable(atomic-file-tests tests/unit/test_atomic_file.cpp)
+target_link_libraries(atomic-file-tests PRIVATE obsidian-sync-core)
+add_test(NAME atomic-file-tests COMMAND atomic-file-tests)
