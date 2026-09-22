@@ -7,6 +7,7 @@
 
 #include <filesystem>
 #include <iostream>
+#include <set>
 #include <utility>
 
 namespace fs = std::filesystem;
@@ -36,8 +37,13 @@ static void print_manifest_actions(const std::vector<ManifestAction> &actions) {
 
 static void update_base_state_after_apply(Database &db,
                                           const std::vector<ManifestAction> &actions,
-                                          const fs::path &local_root) {
+                                          const fs::path &local_root,
+                                          const std::set<std::string> &failed_paths) {
     for (const auto &action : actions) {
+        if (failed_paths.count(action.path) > 0) {
+            continue;
+        }
+
         switch (action.type) {
         case ManifestActionType::Upload:
         case ManifestActionType::Download:
@@ -64,39 +70,59 @@ static void update_base_state_after_apply(Database &db,
     }
 }
 
-static void apply_actions(const std::vector<ManifestAction> &actions,
-                          const fs::path &local_root,
-                          RemoteBackend &remote_backend) {
+static void apply_action(const ManifestAction &action,
+                         const fs::path &local_root,
+                         RemoteBackend &remote_backend) {
+    fs::path local_path = local_root / action.path;
+
+    switch (action.type) {
+    case ManifestActionType::Upload:
+        remote_backend.upload(action.path, local_path);
+        break;
+
+    case ManifestActionType::Download:
+        remote_backend.download(action.path, local_path);
+        break;
+
+    case ManifestActionType::DeleteLocal:
+        std::cout << "Deleting local " << action.path << "\n";
+        fs::remove(local_path);
+        break;
+
+    case ManifestActionType::DeleteRemote:
+        remote_backend.delete_remote(action.path);
+        break;
+
+    case ManifestActionType::Conflict:
+        std::cout << "Conflict: " << action.path << "\n";
+        remote_backend.save_conflict_copy(action.path, remote_conflict_path(local_path));
+        break;
+
+    case ManifestActionType::Unchanged:
+        break;
+    }
+}
+
+// Applies every action independently: a failing action is logged and
+// skipped rather than aborting the whole run, so one bad file doesn't block
+// every action sorted after it. Returns the paths that failed, so the
+// caller can leave their base state alone and retry them next run.
+static std::set<std::string> apply_actions(const std::vector<ManifestAction> &actions,
+                                           const fs::path &local_root,
+                                           RemoteBackend &remote_backend) {
+    std::set<std::string> failed_paths;
+
     for (const auto &action : actions) {
-        fs::path local_path = local_root / action.path;
-
-        switch (action.type) {
-        case ManifestActionType::Upload:
-            remote_backend.upload(action.path, local_path);
-            break;
-
-        case ManifestActionType::Download:
-            remote_backend.download(action.path, local_path);
-            break;
-
-        case ManifestActionType::DeleteLocal:
-            std::cout << "Deleting local " << action.path << "\n";
-            fs::remove(local_path);
-            break;
-
-        case ManifestActionType::DeleteRemote:
-            remote_backend.delete_remote(action.path);
-            break;
-
-        case ManifestActionType::Conflict:
-            std::cout << "Conflict: " << action.path << "\n";
-            remote_backend.save_conflict_copy(action.path, remote_conflict_path(local_path));
-            break;
-
-        case ManifestActionType::Unchanged:
-            break;
+        try {
+            apply_action(action, local_root, remote_backend);
+        } catch (const std::exception &e) {
+            std::cerr << "Failed to apply " << manifest_action_to_string(action.type) << " "
+                      << action.path << ": " << e.what() << "\n";
+            failed_paths.insert(action.path);
         }
     }
+
+    return failed_paths;
 }
 
 SyncService::SyncService(fs::path local_root,
@@ -108,7 +134,7 @@ SyncService::SyncService(fs::path local_root,
       remote_backend_(remote_backend),
       apply_(apply) {}
 
-void SyncService::run_once() {
+bool SyncService::run_once() {
     Database db(state_db_path_);
     db.initialize();
 
@@ -119,8 +145,17 @@ void SyncService::run_once() {
 
     print_manifest_actions(actions);
 
-    if (apply_) {
-        apply_actions(actions, local_root_, remote_backend_);
-        update_base_state_after_apply(db, actions, local_root_);
+    if (!apply_) {
+        return true;
     }
+
+    auto failed_paths = apply_actions(actions, local_root_, remote_backend_);
+    update_base_state_after_apply(db, actions, local_root_, failed_paths);
+
+    if (!failed_paths.empty()) {
+        std::cerr << failed_paths.size() << " action(s) failed and will be retried next run\n";
+        return false;
+    }
+
+    return true;
 }

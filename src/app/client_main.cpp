@@ -71,11 +71,10 @@ int main(int argc, char *argv[]) {
 
             if (config.watch) {
                 run_watch_loop(config, sync_service);
-            } else {
-                sync_service.run_once();
+                return 0;
             }
 
-            return 0;
+            return sync_service.run_once() ? 0 : 1;
         }
 
         if (!config.local_root.empty() && !config.remote_root.empty()) {
@@ -94,11 +93,10 @@ int main(int argc, char *argv[]) {
 
             if (config.watch) {
                 run_watch_loop(config, sync_service);
-            } else {
-                sync_service.run_once();
+                return 0;
             }
 
-            return 0;
+            return sync_service.run_once() ? 0 : 1;
         }
 
         fs::path root_path = config.vault_path;

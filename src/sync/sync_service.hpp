@@ -12,7 +12,9 @@ class SyncService {
                 RemoteBackend &remote_backend,
                 bool apply);
 
-    void run_once();
+    // Returns false if any action failed to apply (they are logged and left
+    // for the next run); the sync still proceeds as far as it can.
+    bool run_once();
 
   private:
     std::filesystem::path local_root_;
