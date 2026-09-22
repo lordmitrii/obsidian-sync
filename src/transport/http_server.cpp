@@ -1,5 +1,6 @@
 #include "http_server.hpp"
 
+#include "atomic_file.hpp"
 #include "output.hpp"
 #include "scanner.hpp"
 #include "security.hpp"
@@ -81,16 +82,12 @@ static bool read_file(const fs::path &path, std::string &body) {
 }
 
 static bool write_file(const fs::path &path, const std::string &body) {
-    fs::create_directories(path.parent_path());
-
-    std::ofstream out(path, std::ios::binary);
-
-    if (!out) {
+    try {
+        atomic_write_file(path, body);
+        return true;
+    } catch (const std::exception &) {
         return false;
     }
-
-    out.write(body.data(), static_cast<std::streamsize>(body.size()));
-    return out.good();
 }
 
 static bool request_path(const httplib::Request &req, std::string &path) {
