@@ -1,20 +1,25 @@
 #include "local_remote_backend.hpp"
 
+#include "atomic_file.hpp"
 #include "scanner.hpp"
 
 #include <filesystem>
 #include <iostream>
+#include <system_error>
 
 namespace fs = std::filesystem;
 
 static void copy_file_overwriting(const fs::path &source, const fs::path &destination) {
-    fs::create_directories(destination.parent_path());
-    fs::copy_file(source, destination, fs::copy_options::overwrite_existing);
+    atomic_copy_file(source, destination);
 }
 
 static void copy_file_without_overwriting(const fs::path &source, const fs::path &destination) {
-    fs::create_directories(destination.parent_path());
-    fs::copy_file(source, destination, fs::copy_options::none);
+    if (fs::exists(destination)) {
+        throw fs::filesystem_error("Refusing to overwrite existing file", destination,
+                                   std::make_error_code(std::errc::file_exists));
+    }
+
+    atomic_copy_file(source, destination);
 }
 
 LocalRemoteBackend::LocalRemoteBackend(fs::path remote_root)
