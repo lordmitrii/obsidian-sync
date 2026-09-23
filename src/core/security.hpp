@@ -11,3 +11,4 @@ constexpr long DEFAULT_HTTP_REQUEST_TIMEOUT_SECONDS = 60;
 std::string load_required_bearer_token();
 std::string bearer_authorization_header(const std::string &token);
 bool constant_time_equals(const std::string &a, const std::string &b);
+bool is_safe_relative_path(const std::string &path);

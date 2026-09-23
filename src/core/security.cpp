@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdlib>
+#include <filesystem>
 #include <stdexcept>
 
 std::string load_required_bearer_token() {
@@ -30,4 +31,24 @@ bool constant_time_equals(const std::string &a, const std::string &b) {
     }
 
     return diff == 0;
+}
+
+bool is_safe_relative_path(const std::string &path) {
+    if (path.empty()) {
+        return false;
+    }
+
+    std::filesystem::path parsed(path);
+
+    if (parsed.is_absolute()) {
+        return false;
+    }
+
+    for (const auto &part : parsed) {
+        if (part == "..") {
+            return false;
+        }
+    }
+
+    return true;
 }

@@ -48,26 +48,6 @@ class RateLimiter {
     std::unordered_map<std::string, std::deque<Clock::time_point>> requests_by_client_;
 };
 
-static bool is_safe_relative_path(const std::string &path) {
-    if (path.empty()) {
-        return false;
-    }
-
-    fs::path parsed(path);
-
-    if (parsed.is_absolute()) {
-        return false;
-    }
-
-    for (const auto &part : parsed) {
-        if (part == "..") {
-            return false;
-        }
-    }
-
-    return true;
-}
-
 static bool read_file(const fs::path &path, std::string &body) {
     std::ifstream in(path, std::ios::binary);
 
