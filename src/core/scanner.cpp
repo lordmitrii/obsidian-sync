@@ -58,6 +58,10 @@ std::int64_t get_modified_time(const fs::path &path) {
 std::optional<FileMeta> scan_file(const fs::path &root, const fs::path &relative_path) {
     fs::path full_path = root / relative_path;
 
+    if (fs::is_symlink(full_path)) {
+        return std::nullopt;
+    }
+
     if (!fs::exists(full_path) || !fs::is_regular_file(full_path) || should_ignore(full_path)) {
         return std::nullopt;
     }
@@ -75,7 +79,7 @@ std::vector<FileMeta> scan_vault(const fs::path &vault_path) {
     std::vector<FileMeta> files;
 
     for (const auto &entry : fs::recursive_directory_iterator(vault_path)) {
-        if (!entry.is_regular_file()) {
+        if (entry.is_symlink() || !entry.is_regular_file()) {
             continue;
         }
 
