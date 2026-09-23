@@ -76,10 +76,38 @@ static void test_errors_mention_the_path() {
     fs::remove(broken);
 }
 
+static bool parse_json_fails(const std::string &json_text) {
+    try {
+        parse_manifest_json(json_text);
+    } catch (const std::runtime_error &) {
+        return true;
+    }
+
+    return false;
+}
+
+static void test_rejects_unsafe_paths() {
+    expect(parse_json_fails(R"({"files": [
+        {"path": "../secrets.md", "hash": "h", "size": 1, "modified_time": 1}
+    ]})"),
+           "rejects_dotdot_path");
+
+    expect(parse_json_fails(R"({"files": [
+        {"path": "/etc/passwd", "hash": "h", "size": 1, "modified_time": 1}
+    ]})"),
+           "rejects_absolute_path");
+
+    expect(!parse_json_fails(R"({"files": [
+        {"path": "notes/a.md", "hash": "h", "size": 1, "modified_time": 1}
+    ]})"),
+           "accepts_safe_path");
+}
+
 int main() {
     test_round_trip();
     test_empty_manifest();
     test_errors_mention_the_path();
+    test_rejects_unsafe_paths();
 
     if (failures == 0) {
         std::cout << "All manifest tests passed\n";

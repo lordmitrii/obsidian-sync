@@ -1,19 +1,18 @@
 #include "http_remote_backend.hpp"
 
 #include "atomic_file.hpp"
+#include "manifest.hpp"
 #include "security.hpp"
 
 #include <cstring>
 #include <curl/curl.h>
 #include <filesystem>
 #include <fstream>
-#include <nlohmann/json.hpp>
 #include <sstream>
 #include <stdexcept>
 #include <utility>
 
 namespace fs = std::filesystem;
-using json = nlohmann::json;
 
 struct HttpResponse {
     long status = 0;
@@ -130,23 +129,6 @@ static HttpResponse request(const std::string &method,
     return response;
 }
 
-static Manifest parse_manifest(const std::string &body) {
-    json root = json::parse(body);
-    Manifest manifest;
-
-    for (const auto &item : root["files"]) {
-        FileMeta meta;
-        meta.path = item["path"];
-        meta.hash = item["hash"];
-        meta.size = item["size"];
-        meta.modified_time = item["modified_time"];
-
-        manifest[meta.path] = meta;
-    }
-
-    return manifest;
-}
-
 static std::string read_file(const fs::path &path) {
     std::ifstream in(path, std::ios::binary);
 
@@ -182,7 +164,7 @@ Manifest HttpRemoteBackend::load_manifest() {
                                  std::to_string(response.status));
     }
 
-    return parse_manifest(response.body);
+    return parse_manifest_json(response.body);
 }
 
 void HttpRemoteBackend::upload(const std::string &path, const fs::path &local_file) {
