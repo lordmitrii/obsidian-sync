@@ -8,6 +8,7 @@
 #include <filesystem>
 #include <iostream>
 #include <set>
+#include <stdexcept>
 #include <utility>
 
 namespace fs = std::filesystem;
@@ -35,9 +36,14 @@ static void print_manifest_actions(const std::vector<ManifestAction> &actions) {
     std::cout.flush();
 }
 
+// Base state is recorded from the plan-time manifests (what was actually
+// compared and transferred), never by re-reading the file from disk — a
+// re-read could see an edit the user made after the scan, which would wrongly
+// promote that edit to "base" without it ever having reached the remote.
 static void update_base_state_after_apply(Database &db,
                                           const std::vector<ManifestAction> &actions,
-                                          const fs::path &local_root,
+                                          const Manifest &local_manifest,
+                                          const Manifest &remote_manifest,
                                           const std::set<std::string> &failed_paths) {
     for (const auto &action : actions) {
         if (failed_paths.count(action.path) > 0) {
@@ -46,12 +52,23 @@ static void update_base_state_after_apply(Database &db,
 
         switch (action.type) {
         case ManifestActionType::Upload:
-        case ManifestActionType::Download:
         case ManifestActionType::Unchanged: {
-            auto file = scan_file(local_root, action.path);
+            auto it = local_manifest.find(action.path);
 
-            if (file.has_value()) {
-                db.save_file(*file);
+            if (it != local_manifest.end()) {
+                db.save_file(it->second);
+            } else {
+                db.delete_file(action.path);
+            }
+
+            break;
+        }
+
+        case ManifestActionType::Download: {
+            auto it = remote_manifest.find(action.path);
+
+            if (it != remote_manifest.end()) {
+                db.save_file(it->second);
             } else {
                 db.delete_file(action.path);
             }
@@ -72,13 +89,28 @@ static void update_base_state_after_apply(Database &db,
 
 static void apply_action(const ManifestAction &action,
                          const fs::path &local_root,
+                         const Manifest &local_manifest,
                          RemoteBackend &remote_backend) {
     fs::path local_path = local_root / action.path;
 
     switch (action.type) {
-    case ManifestActionType::Upload:
+    case ManifestActionType::Upload: {
+        // Re-hash right before sending: if the file changed since it was
+        // planned, skip it so it's retried (and re-planned) next run instead
+        // of uploading stale bytes and recording them as the new base.
+        auto planned = local_manifest.find(action.path);
+
+        if (planned != local_manifest.end()) {
+            auto current = scan_file(local_root, action.path);
+
+            if (!current.has_value() || current->hash != planned->second.hash) {
+                throw std::runtime_error("file changed since it was planned, will retry");
+            }
+        }
+
         remote_backend.upload(action.path, local_path);
         break;
+    }
 
     case ManifestActionType::Download:
         remote_backend.download(action.path, local_path);
@@ -109,12 +141,13 @@ static void apply_action(const ManifestAction &action,
 // caller can leave their base state alone and retry them next run.
 static std::set<std::string> apply_actions(const std::vector<ManifestAction> &actions,
                                            const fs::path &local_root,
+                                           const Manifest &local_manifest,
                                            RemoteBackend &remote_backend) {
     std::set<std::string> failed_paths;
 
     for (const auto &action : actions) {
         try {
-            apply_action(action, local_root, remote_backend);
+            apply_action(action, local_root, local_manifest, remote_backend);
         } catch (const std::exception &e) {
             std::cerr << "Failed to apply " << manifest_action_to_string(action.type) << " "
                       << action.path << ": " << e.what() << "\n";
@@ -149,8 +182,8 @@ bool SyncService::run_once() {
         return true;
     }
 
-    auto failed_paths = apply_actions(actions, local_root_, remote_backend_);
-    update_base_state_after_apply(db, actions, local_root_, failed_paths);
+    auto failed_paths = apply_actions(actions, local_root_, local_manifest, remote_backend_);
+    update_base_state_after_apply(db, actions, local_manifest, remote_manifest, failed_paths);
 
     if (!failed_paths.empty()) {
         std::cerr << failed_paths.size() << " action(s) failed and will be retried next run\n";
