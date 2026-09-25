@@ -53,6 +53,30 @@ struct Fixture {
     }
 };
 
+// Simulates the user saving a local file mid-run: load_manifest() is called
+// after the run's local scan but before it applies actions and records base
+// state, so writing the new content there mimics an edit landing in that gap.
+class MidRunEditingBackend : public LocalRemoteBackend {
+  public:
+    MidRunEditingBackend(const fs::path &remote_root, fs::path edit_path, std::string new_content)
+        : LocalRemoteBackend(remote_root),
+          edit_path_(std::move(edit_path)),
+          new_content_(std::move(new_content)) {}
+
+    Manifest load_manifest() override {
+        if (!new_content_.empty()) {
+            write_file(edit_path_, new_content_);
+            new_content_.clear();
+        }
+
+        return LocalRemoteBackend::load_manifest();
+    }
+
+  private:
+    fs::path edit_path_;
+    std::string new_content_;
+};
+
 static void test_first_sync_uploads_and_downloads() {
     Fixture f("first");
     write_file(f.local / "mine.md", "local note");
@@ -143,6 +167,23 @@ static void test_one_failed_action_does_not_block_the_others() {
     expect(read_file(f.remote / "bad.md") == "v1", "retried_upload_eventually_applied");
 }
 
+static void test_edit_during_sync_run_is_not_lost() {
+    Fixture f("mid-run-edit");
+    write_file(f.local / "a.md", "v1");
+    f.sync();
+
+    MidRunEditingBackend backend(f.remote, f.local / "a.md", "v2 mid-run edit");
+    SyncService service(f.local, f.state, backend, true);
+    service.run_once();
+
+    expect(read_file(f.remote / "a.md") == "v1", "mid_run_edit_remote_untouched_by_that_run");
+
+    f.sync();
+
+    expect(read_file(f.remote / "a.md") == "v2 mid-run edit", "mid_run_edit_is_uploaded_not_lost");
+    expect(read_file(f.local / "a.md") == "v2 mid-run edit", "mid_run_edit_survives_locally");
+}
+
 int main() {
     test_first_sync_uploads_and_downloads();
     test_dry_run_changes_nothing();
@@ -151,6 +192,7 @@ int main() {
     test_remote_delete_propagates();
     test_conflict_keeps_local_and_saves_remote_copy();
     test_one_failed_action_does_not_block_the_others();
+    test_edit_during_sync_run_is_not_lost();
 
     if (failures != 0) {
         std::cerr << failures << " test(s) failed\n";
