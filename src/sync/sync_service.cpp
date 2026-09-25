@@ -1,6 +1,7 @@
 #include "sync_service.hpp"
 
 #include "db.hpp"
+#include "hasher.hpp"
 #include "manifest_action.hpp"
 #include "scanner.hpp"
 #include "three_way_compare.hpp"
@@ -26,6 +27,14 @@ static Manifest files_to_manifest(const std::vector<FileMeta> &files) {
 static fs::path remote_conflict_path(const fs::path &local_path) {
     return local_path.parent_path() /
            (local_path.stem().string() + ".conflict-remote" + local_path.extension().string());
+}
+
+// Numbers past the first conflict copy: name.conflict-remote.ext,
+// name.conflict-remote.2.ext, name.conflict-remote.3.ext, ...
+static fs::path numbered_conflict_path(const fs::path &first_choice, int n) {
+    return first_choice.parent_path() /
+           (first_choice.stem().string() + "." + std::to_string(n) +
+            first_choice.extension().string());
 }
 
 static void print_manifest_actions(const std::vector<ManifestAction> &actions) {
@@ -90,6 +99,7 @@ static void update_base_state_after_apply(Database &db,
 static void apply_action(const ManifestAction &action,
                          const fs::path &local_root,
                          const Manifest &local_manifest,
+                         const Manifest &remote_manifest,
                          RemoteBackend &remote_backend) {
     fs::path local_path = local_root / action.path;
 
@@ -125,10 +135,33 @@ static void apply_action(const ManifestAction &action,
         remote_backend.delete_remote(action.path);
         break;
 
-    case ManifestActionType::Conflict:
+    case ManifestActionType::Conflict: {
         std::cout << "Conflict: " << action.path << "\n";
-        remote_backend.save_conflict_copy(action.path, remote_conflict_path(local_path));
+
+        fs::path conflict_path = remote_conflict_path(local_path);
+        auto remote_it = remote_manifest.find(action.path);
+
+        // A conflict copy from an earlier run already sitting at
+        // conflict_path is expected in --watch mode: base state doesn't
+        // move forward on conflict, so the same conflict is replanned every
+        // interval. Skip re-downloading it when it still matches the
+        // current remote hash, and give it a fresh numbered name instead of
+        // clobbering it when the remote has since changed again.
+        if (fs::exists(conflict_path)) {
+            if (remote_it != remote_manifest.end() &&
+                sha256_file(conflict_path) == remote_it->second.hash) {
+                std::cout << "Conflict copy already up to date, skipping\n";
+                break;
+            }
+
+            for (int n = 2; fs::exists(conflict_path); ++n) {
+                conflict_path = numbered_conflict_path(remote_conflict_path(local_path), n);
+            }
+        }
+
+        remote_backend.save_conflict_copy(action.path, conflict_path);
         break;
+    }
 
     case ManifestActionType::Unchanged:
         break;
@@ -142,12 +175,13 @@ static void apply_action(const ManifestAction &action,
 static std::set<std::string> apply_actions(const std::vector<ManifestAction> &actions,
                                            const fs::path &local_root,
                                            const Manifest &local_manifest,
+                                           const Manifest &remote_manifest,
                                            RemoteBackend &remote_backend) {
     std::set<std::string> failed_paths;
 
     for (const auto &action : actions) {
         try {
-            apply_action(action, local_root, local_manifest, remote_backend);
+            apply_action(action, local_root, local_manifest, remote_manifest, remote_backend);
         } catch (const std::exception &e) {
             std::cerr << "Failed to apply " << manifest_action_to_string(action.type) << " "
                       << action.path << ": " << e.what() << "\n";
@@ -182,7 +216,8 @@ bool SyncService::run_once() {
         return true;
     }
 
-    auto failed_paths = apply_actions(actions, local_root_, local_manifest, remote_backend_);
+    auto failed_paths =
+        apply_actions(actions, local_root_, local_manifest, remote_manifest, remote_backend_);
     update_base_state_after_apply(db, actions, local_manifest, remote_manifest, failed_paths);
 
     if (!failed_paths.empty()) {
