@@ -44,6 +44,7 @@ add_library(obsidian-sync-core
     src/sync/three_way_compare.cpp
     src/sync/two_way_compare.cpp
     src/transport/http_server.cpp
+    src/transport/rate_limiter.cpp
 )
 
 target_link_libraries(
@@ -120,3 +121,7 @@ add_test(NAME sync-service-tests COMMAND sync-service-tests)
 add_executable(atomic-file-tests tests/unit/test_atomic_file.cpp)
 target_link_libraries(atomic-file-tests PRIVATE obsidian-sync-core)
 add_test(NAME atomic-file-tests COMMAND atomic-file-tests)
+
+add_executable(rate-limiter-tests tests/unit/test_rate_limiter.cpp)
+target_link_libraries(rate-limiter-tests PRIVATE obsidian-sync-core)
+add_test(NAME rate-limiter-tests COMMAND rate-limiter-tests)

@@ -2,51 +2,17 @@
 
 #include "atomic_file.hpp"
 #include "output.hpp"
+#include "rate_limiter.hpp"
 #include "scanner.hpp"
 #include "security.hpp"
 
-#include <chrono>
-#include <deque>
 #include <filesystem>
 #include <fstream>
 #include <httplib.h>
 #include <iostream>
-#include <mutex>
 #include <sstream>
-#include <unordered_map>
 
 namespace fs = std::filesystem;
-using Clock = std::chrono::steady_clock;
-
-class RateLimiter {
-  public:
-    explicit RateLimiter(int max_requests_per_minute)
-        : max_requests_per_minute_(max_requests_per_minute) {}
-
-    bool allow(const std::string &client_key) {
-        std::lock_guard<std::mutex> lock(mutex_);
-        auto now = Clock::now();
-        auto window_start = now - std::chrono::minutes(1);
-
-        auto &requests = requests_by_client_[client_key];
-
-        while (!requests.empty() && requests.front() < window_start) {
-            requests.pop_front();
-        }
-
-        if (static_cast<int>(requests.size()) >= max_requests_per_minute_) {
-            return false;
-        }
-
-        requests.push_back(now);
-        return true;
-    }
-
-  private:
-    int max_requests_per_minute_;
-    std::mutex mutex_;
-    std::unordered_map<std::string, std::deque<Clock::time_point>> requests_by_client_;
-};
 
 static bool read_file(const fs::path &path, std::string &body) {
     std::ifstream in(path, std::ios::binary);
