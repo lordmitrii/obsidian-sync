@@ -147,6 +147,43 @@ static void test_conflict_keeps_local_and_saves_remote_copy() {
            "conflict_saves_remote_copy");
 }
 
+static void test_repeated_conflict_does_not_fail_forever() {
+    Fixture f("repeated-conflict");
+    write_file(f.local / "a.md", "base");
+    f.sync();
+
+    write_file(f.local / "a.md", "local edit");
+    write_file(f.remote / "a.md", "remote edit!");
+    f.sync();
+
+    // Base state doesn't move forward on conflict, so this replans the same
+    // conflict on the next run, same as --watch polling every interval.
+    bool ok = f.sync();
+
+    expect(ok, "unchanged_conflict_does_not_report_failure");
+    expect(read_file(f.local / "a.conflict-remote.md") == "remote edit!",
+           "unchanged_conflict_copy_still_matches_remote");
+}
+
+static void test_conflict_gets_a_numbered_copy_when_remote_changes_again() {
+    Fixture f("renumbered-conflict");
+    write_file(f.local / "a.md", "base");
+    f.sync();
+
+    write_file(f.local / "a.md", "local edit");
+    write_file(f.remote / "a.md", "remote edit!");
+    f.sync();
+
+    write_file(f.remote / "a.md", "remote edit 2!");
+    bool ok = f.sync();
+
+    expect(ok, "renumbered_conflict_does_not_report_failure");
+    expect(read_file(f.local / "a.conflict-remote.md") == "remote edit!",
+           "first_conflict_copy_is_untouched");
+    expect(read_file(f.local / "a.conflict-remote.2.md") == "remote edit 2!",
+           "second_conflict_copy_gets_a_number");
+}
+
 static void test_one_failed_action_does_not_block_the_others() {
     Fixture f("partial-failure");
     write_file(f.local / "good.md", "v1");
@@ -191,6 +228,8 @@ int main() {
     test_local_delete_propagates();
     test_remote_delete_propagates();
     test_conflict_keeps_local_and_saves_remote_copy();
+    test_repeated_conflict_does_not_fail_forever();
+    test_conflict_gets_a_numbered_copy_when_remote_changes_again();
     test_one_failed_action_does_not_block_the_others();
     test_edit_during_sync_run_is_not_lost();
 
