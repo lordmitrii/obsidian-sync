@@ -46,6 +46,8 @@ void print_usage() {
         "  --local-root <path>         Local vault to sync\n"
         "  --remote-root <path>        Remote directory to sync against (for testing)\n"
         "  --remote-url <url>          Remote HTTP server to sync against\n"
+        "  --insecure-http             Allow a plain http:// --remote-url to a non-loopback host\n"
+        "  --cacert <path>             CA bundle to verify the remote server's certificate\n"
         "  --apply                     Execute the sync plan\n"
         "  --watch                     Keep syncing on an interval (requires --apply)\n"
         "  --interval <seconds>        Seconds between watch runs (default: 30)\n"
@@ -149,6 +151,14 @@ Config parse_args(int argc, char *argv[]) {
 
             config.remote_url = argv[++i];
 
+        } else if (arg == "--insecure-http") {
+            config.insecure_http = true;
+        } else if (arg == "--cacert") {
+            if (i + 1 >= argc) {
+                throw std::runtime_error("--cacert requires a path");
+            }
+
+            config.cacert_path = argv[++i];
         } else if (arg == "--apply") {
             config.apply = true;
         } else if (arg == "--watch") {

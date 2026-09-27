@@ -65,6 +65,7 @@ static std::string manifest_url(const std::string &remote_url) {
 static HttpResponse request(const std::string &method,
                             const std::string &url,
                             const std::string &bearer_token,
+                            const std::string &cacert_path,
                             const std::string *body = nullptr) {
     CURL *curl = curl_easy_init();
 
@@ -81,9 +82,16 @@ static HttpResponse request(const std::string &method,
     curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_to_string);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response.body);
-    curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+    // Never follow redirects: curl forwards the Authorization header to the
+    // redirect target regardless of host, which would leak the bearer token
+    // to wherever a compromised or misconfigured server points it.
+    curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 0L);
     curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, DEFAULT_HTTP_CONNECT_TIMEOUT_SECONDS);
     curl_easy_setopt(curl, CURLOPT_TIMEOUT, DEFAULT_HTTP_REQUEST_TIMEOUT_SECONDS);
+
+    if (!cacert_path.empty()) {
+        curl_easy_setopt(curl, CURLOPT_CAINFO, cacert_path.c_str());
+    }
 
     struct ReadState {
         const char *data;
@@ -151,13 +159,15 @@ static void write_file(const fs::path &path, const std::string &body, bool overw
 
 HttpRemoteBackend::HttpRemoteBackend(std::string remote_url,
                                      std::string bearer_token,
-                                     std::size_t max_upload_bytes)
+                                     std::size_t max_upload_bytes,
+                                     std::string cacert_path)
     : remote_url_(std::move(remote_url)),
       bearer_token_(std::move(bearer_token)),
-      max_upload_bytes_(max_upload_bytes) {}
+      max_upload_bytes_(max_upload_bytes),
+      cacert_path_(std::move(cacert_path)) {}
 
 Manifest HttpRemoteBackend::load_manifest() {
-    HttpResponse response = request("GET", manifest_url(remote_url_), bearer_token_);
+    HttpResponse response = request("GET", manifest_url(remote_url_), bearer_token_, cacert_path_);
 
     if (response.status != 200) {
         throw std::runtime_error("Failed to fetch remote manifest: HTTP " +
@@ -173,7 +183,8 @@ void HttpRemoteBackend::upload(const std::string &path, const fs::path &local_fi
     }
 
     std::string body = read_file(local_file);
-    HttpResponse response = request("PUT", file_url(remote_url_, path), bearer_token_, &body);
+    HttpResponse response =
+        request("PUT", file_url(remote_url_, path), bearer_token_, cacert_path_, &body);
 
     if (response.status == 413) {
         throw std::runtime_error("Upload rejected as too large: " + path);
@@ -186,7 +197,8 @@ void HttpRemoteBackend::upload(const std::string &path, const fs::path &local_fi
 }
 
 void HttpRemoteBackend::download(const std::string &path, const fs::path &local_file) {
-    HttpResponse response = request("GET", file_url(remote_url_, path), bearer_token_);
+    HttpResponse response =
+        request("GET", file_url(remote_url_, path), bearer_token_, cacert_path_);
 
     if (response.status != 200) {
         throw std::runtime_error("Download failed for " + path + ": HTTP " +
@@ -197,7 +209,8 @@ void HttpRemoteBackend::download(const std::string &path, const fs::path &local_
 }
 
 void HttpRemoteBackend::delete_remote(const std::string &path) {
-    HttpResponse response = request("DELETE", file_url(remote_url_, path), bearer_token_);
+    HttpResponse response =
+        request("DELETE", file_url(remote_url_, path), bearer_token_, cacert_path_);
 
     if (response.status < 200 || response.status >= 300) {
         throw std::runtime_error("Remote delete failed for " + path + ": HTTP " +
@@ -207,7 +220,8 @@ void HttpRemoteBackend::delete_remote(const std::string &path) {
 
 void HttpRemoteBackend::save_conflict_copy(const std::string &path,
                                            const fs::path &local_conflict_path) {
-    HttpResponse response = request("GET", file_url(remote_url_, path), bearer_token_);
+    HttpResponse response =
+        request("GET", file_url(remote_url_, path), bearer_token_, cacert_path_);
 
     if (response.status == 404) {
         return;

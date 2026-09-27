@@ -78,8 +78,15 @@ int main(int argc, char *argv[]) {
                 return 1;
             }
 
+            if (!config.insecure_http && !is_secure_remote_url(config.remote_url)) {
+                std::cerr << "Refusing plain HTTP to a non-loopback host (would send the bearer "
+                             "token in clear text); use https:// or pass --insecure-http\n";
+                return 1;
+            }
+
             std::string token = load_required_bearer_token();
-            HttpRemoteBackend backend(config.remote_url, token, DEFAULT_MAX_UPLOAD_BYTES);
+            HttpRemoteBackend backend(config.remote_url, token, DEFAULT_MAX_UPLOAD_BYTES,
+                                      config.cacert_path);
             SyncService sync_service(config.local_root, config.state_db_path, backend, config.apply);
 
             if (config.watch) {

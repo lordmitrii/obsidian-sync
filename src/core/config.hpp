@@ -22,6 +22,8 @@ struct Config {
     std::filesystem::path local_root;
     std::filesystem::path remote_root;
     std::string remote_url;
+    bool insecure_http = false;
+    std::string cacert_path;
     bool apply = false;
     bool watch = false;
     int watch_interval_seconds = 30;

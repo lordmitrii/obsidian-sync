@@ -71,11 +71,27 @@ static void test_trusted_proxy() {
            "trusted_proxy_requires_a_value");
 }
 
+static void test_insecure_http_and_cacert() {
+    Config config = parse({"--local-root", "/tmp", "--remote-url", "http://example.com",
+                           "--insecure-http", "--cacert", "/tmp/ca.pem"});
+    expect(config.insecure_http, "insecure_http_flag_is_captured");
+    expect(config.cacert_path == "/tmp/ca.pem", "cacert_path_is_captured");
+
+    Config without = parse({"--local-root", "/tmp", "--remote-url", "https://example.com"});
+    expect(!without.insecure_http, "insecure_http_defaults_to_false");
+    expect(without.cacert_path.empty(), "cacert_path_defaults_to_empty");
+
+    expect(throws_with({"--local-root", "/tmp", "--remote-url", "https://example.com", "--cacert"},
+                       "--cacert requires a path"),
+           "cacert_requires_a_value");
+}
+
 int main() {
     test_rejects_trailing_garbage_in_port();
     test_rejects_trailing_garbage_in_interval();
     test_accepts_valid_numbers();
     test_trusted_proxy();
+    test_insecure_http_and_cacert();
 
     if (failures == 0) {
         std::cout << "All config tests passed\n";
