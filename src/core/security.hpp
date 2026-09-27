@@ -13,6 +13,4 @@ std::string bearer_authorization_header(const std::string &token);
 bool constant_time_equals(const std::string &a, const std::string &b);
 bool is_safe_relative_path(const std::string &path);
 
-// True for an https:// URL, or an http:// URL whose host is loopback (the
-// bearer token is safe to send in clear text only on the local machine).
 bool is_secure_remote_url(const std::string &url);

@@ -54,9 +54,6 @@ static bool is_authorized(const httplib::Request &req, const std::string &bearer
                                 bearer_authorization_header(bearer_token));
 }
 
-// Only trust X-Real-IP when the request actually came from the configured
-// proxy's own address; otherwise a client could set the header itself and
-// spread its requests across fake keys to dodge the rate limit.
 static std::string rate_limit_key(const httplib::Request &req, const std::string &trusted_proxy) {
     if (!trusted_proxy.empty() && req.remote_addr == trusted_proxy && req.has_header("X-Real-IP")) {
         return req.get_header_value("X-Real-IP");
@@ -73,10 +70,6 @@ void run_http_server(const fs::path &server_root,
                      int rate_limit_per_minute,
                      const std::string &trusted_proxy) {
     httplib::Server server;
-    // Separate pools so a flood of unauthenticated requests (wrong or
-    // missing token) can only exhaust its own bucket per key, never the
-    // bucket that a legitimate authenticated client behind the same key is
-    // drawing from.
     RateLimiter authenticated_limiter(rate_limit_per_minute);
     RateLimiter unauthenticated_limiter(rate_limit_per_minute);
 

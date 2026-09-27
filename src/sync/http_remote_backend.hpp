@@ -7,9 +7,6 @@
 
 class HttpRemoteBackend : public RemoteBackend {
   public:
-    // cacert_path: path to a CA bundle to verify the server's certificate
-    // against, in place of curl's default trust store; left empty to use
-    // curl's default (peer/host verification stays on either way).
     HttpRemoteBackend(std::string remote_url,
                       std::string bearer_token,
                       std::size_t max_upload_bytes,

@@ -125,8 +125,6 @@ test_auth_and_limits() {
     expect_http_code 413 -X PUT -H "Authorization: Bearer $TOKEN" \
         --data-binary "@$TMP_ROOT/too-large.bin" "$BASE_URL/file?path=too-large.bin"
 
-    # A flood of failed-auth requests must exhaust only its own bucket, never
-    # the authenticated one, so it can't starve a real client sharing the key.
     local saw_429_unauth=0
     for _ in {1..130}; do
         local code
@@ -190,8 +188,6 @@ test_client_sync_and_state() {
         fail "HTTP client synced without OBSIDIAN_SYNC_TOKEN"
     fi
 
-    # conflict.md diverges on both sides, so this run leaves an unresolved
-    # conflict and exits 2 (RunStatus::ConflictsPending) rather than 0.
     run_expect_exit 2 env OBSIDIAN_SYNC_TOKEN="$TOKEN" "$CLIENT_BINARY" \
         --local-root "$dir/local" \
         --remote-url "$BASE_URL" \
@@ -213,8 +209,6 @@ test_client_sync_and_state() {
     assert_file_content "$dir/local/conflict.md" "local-conflict"
     assert_file_content "$dir/local/conflict.conflict-remote.md" "remote-conflict"
 
-    # Still planning against the same unresolved conflict, so this also
-    # exits 2 even though it's a plan-only run (no --apply).
     run_expect_exit 2 env OBSIDIAN_SYNC_TOKEN="$TOKEN" "$CLIENT_BINARY" \
         --local-root "$dir/local" \
         --remote-url "$BASE_URL" \

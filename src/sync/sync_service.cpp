@@ -45,8 +45,6 @@ static void print_manifest_actions(const std::vector<ManifestAction> &actions) {
     std::cout.flush();
 }
 
-// Returns how many conflicts are still unresolved, printing a summary of
-// their paths to stderr when there are any.
 static size_t report_unresolved_conflicts(const std::vector<ManifestAction> &actions) {
     std::vector<std::string> paths;
 
