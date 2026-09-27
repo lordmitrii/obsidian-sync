@@ -30,6 +30,18 @@ fail() {
     exit 1
 }
 
+run_expect_exit() {
+    local expected="$1"
+    shift
+
+    set +e
+    "$@"
+    local actual=$?
+    set -e
+
+    [[ "$actual" -eq "$expected" ]] || fail "expected exit code $expected, got $actual: $*"
+}
+
 assert_file_content() {
     local path="$1"
     local expected="$2"
@@ -162,7 +174,9 @@ test_client_sync_and_state() {
         fail "HTTP client synced without OBSIDIAN_SYNC_TOKEN"
     fi
 
-    OBSIDIAN_SYNC_TOKEN="$TOKEN" "$CLIENT_BINARY" \
+    # conflict.md diverges on both sides, so this run leaves an unresolved
+    # conflict and exits 2 (RunStatus::ConflictsPending) rather than 0.
+    run_expect_exit 2 env OBSIDIAN_SYNC_TOKEN="$TOKEN" "$CLIENT_BINARY" \
         --local-root "$dir/local" \
         --remote-url "$BASE_URL" \
         --state "$dir/state.db" \
@@ -183,7 +197,9 @@ test_client_sync_and_state() {
     assert_file_content "$dir/local/conflict.md" "local-conflict"
     assert_file_content "$dir/local/conflict.conflict-remote.md" "remote-conflict"
 
-    OBSIDIAN_SYNC_TOKEN="$TOKEN" "$CLIENT_BINARY" \
+    # Still planning against the same unresolved conflict, so this also
+    # exits 2 even though it's a plan-only run (no --apply).
+    run_expect_exit 2 env OBSIDIAN_SYNC_TOKEN="$TOKEN" "$CLIENT_BINARY" \
         --local-root "$dir/local" \
         --remote-url "$BASE_URL" \
         --state "$dir/state.db" >"$dir/second-plan.txt"
