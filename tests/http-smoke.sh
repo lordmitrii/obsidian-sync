@@ -125,6 +125,22 @@ test_auth_and_limits() {
     expect_http_code 413 -X PUT -H "Authorization: Bearer $TOKEN" \
         --data-binary "@$TMP_ROOT/too-large.bin" "$BASE_URL/file?path=too-large.bin"
 
+    # A flood of failed-auth requests must exhaust only its own bucket, never
+    # the authenticated one, so it can't starve a real client sharing the key.
+    local saw_429_unauth=0
+    for _ in {1..130}; do
+        local code
+        code="$(curl --max-time 5 -s -o /dev/null -w '%{http_code}' "$BASE_URL/manifest")"
+
+        if [[ "$code" == "429" ]]; then
+            saw_429_unauth=1
+            break
+        fi
+    done
+
+    [[ "$saw_429_unauth" == "1" ]] || fail "unauthenticated flood did not hit its own rate limit"
+    expect_http_code 200 -H "Authorization: Bearer $TOKEN" "$BASE_URL/manifest"
+
     local saw_429=0
     for _ in {1..130}; do
         local code

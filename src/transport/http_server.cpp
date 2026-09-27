@@ -73,19 +73,28 @@ void run_http_server(const fs::path &server_root,
                      int rate_limit_per_minute,
                      const std::string &trusted_proxy) {
     httplib::Server server;
-    RateLimiter rate_limiter(rate_limit_per_minute);
+    // Separate pools so a flood of unauthenticated requests (wrong or
+    // missing token) can only exhaust its own bucket per key, never the
+    // bucket that a legitimate authenticated client behind the same key is
+    // drawing from.
+    RateLimiter authenticated_limiter(rate_limit_per_minute);
+    RateLimiter unauthenticated_limiter(rate_limit_per_minute);
 
     server.set_payload_max_length(max_upload_bytes);
     server.set_pre_routing_handler(
-        [&bearer_token, &rate_limiter, &trusted_proxy](const httplib::Request &req,
-                                                        httplib::Response &res) {
-            if (!rate_limiter.allow(rate_limit_key(req, trusted_proxy))) {
+        [&bearer_token, &authenticated_limiter, &unauthenticated_limiter,
+         &trusted_proxy](const httplib::Request &req, httplib::Response &res) {
+            std::string key = rate_limit_key(req, trusted_proxy);
+            bool authorized = is_authorized(req, bearer_token);
+            RateLimiter &limiter = authorized ? authenticated_limiter : unauthenticated_limiter;
+
+            if (!limiter.allow(key)) {
                 res.status = 429;
                 res.set_content("Too many requests\n", "text/plain");
                 return httplib::Server::HandlerResponse::Handled;
             }
 
-            if (!is_authorized(req, bearer_token)) {
+            if (!authorized) {
                 res.status = 401;
                 res.set_content("Unauthorized\n", "text/plain");
                 return httplib::Server::HandlerResponse::Handled;
