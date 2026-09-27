@@ -46,7 +46,7 @@ struct Fixture {
 
     ~Fixture() { fs::remove_all(root); }
 
-    bool sync() {
+    RunStatus sync() {
         LocalRemoteBackend backend(remote);
         SyncService service(local, state, backend, true);
         return service.run_once();
@@ -139,8 +139,9 @@ static void test_conflict_keeps_local_and_saves_remote_copy() {
 
     write_file(f.local / "a.md", "local edit");
     write_file(f.remote / "a.md", "remote edit!");
-    f.sync();
+    RunStatus status = f.sync();
 
+    expect(status == RunStatus::ConflictsPending, "conflict_reports_conflicts_pending");
     expect(read_file(f.local / "a.md") == "local edit", "conflict_keeps_local");
     expect(read_file(f.remote / "a.md") == "remote edit!", "conflict_keeps_remote");
     expect(read_file(f.local / "a.conflict-remote.md") == "remote edit!",
@@ -158,9 +159,9 @@ static void test_repeated_conflict_does_not_fail_forever() {
 
     // Base state doesn't move forward on conflict, so this replans the same
     // conflict on the next run, same as --watch polling every interval.
-    bool ok = f.sync();
+    RunStatus status = f.sync();
 
-    expect(ok, "unchanged_conflict_does_not_report_failure");
+    expect(status == RunStatus::ConflictsPending, "unchanged_conflict_reports_conflicts_pending");
     expect(read_file(f.local / "a.conflict-remote.md") == "remote edit!",
            "unchanged_conflict_copy_still_matches_remote");
 }
@@ -175,9 +176,9 @@ static void test_conflict_gets_a_numbered_copy_when_remote_changes_again() {
     f.sync();
 
     write_file(f.remote / "a.md", "remote edit 2!");
-    bool ok = f.sync();
+    RunStatus status = f.sync();
 
-    expect(ok, "renumbered_conflict_does_not_report_failure");
+    expect(status == RunStatus::ConflictsPending, "renumbered_conflict_reports_conflicts_pending");
     expect(read_file(f.local / "a.conflict-remote.md") == "remote edit!",
            "first_conflict_copy_is_untouched");
     expect(read_file(f.local / "a.conflict-remote.2.md") == "remote edit 2!",
@@ -191,16 +192,16 @@ static void test_one_failed_action_does_not_block_the_others() {
     // A directory in place of the remote file makes the upload fail.
     fs::create_directories(f.remote / "bad.md");
 
-    bool ok = f.sync();
+    RunStatus status = f.sync();
 
-    expect(!ok, "run_once_reports_failure_when_an_action_fails");
+    expect(status == RunStatus::ActionsFailed, "run_once_reports_failure_when_an_action_fails");
     expect(read_file(f.remote / "good.md") == "v1", "other_upload_still_applied");
     expect(fs::is_directory(f.remote / "bad.md"), "failed_upload_left_remote_untouched");
 
     fs::remove_all(f.remote / "bad.md");
-    bool retried_ok = f.sync();
+    RunStatus retried_status = f.sync();
 
-    expect(retried_ok, "failed_action_is_retried_next_run");
+    expect(retried_status == RunStatus::Success, "failed_action_is_retried_next_run");
     expect(read_file(f.remote / "bad.md") == "v1", "retried_upload_eventually_applied");
 }
 

@@ -18,6 +18,19 @@
 
 namespace fs = std::filesystem;
 
+static int exit_code_for(RunStatus status) {
+    switch (status) {
+    case RunStatus::Success:
+        return 0;
+    case RunStatus::ActionsFailed:
+        return 1;
+    case RunStatus::ConflictsPending:
+        return 2;
+    }
+
+    return 1;
+}
+
 static void run_watch_loop(const Config &config, SyncService &sync_service) {
     while (true) {
         try {
@@ -74,7 +87,7 @@ int main(int argc, char *argv[]) {
                 return 0;
             }
 
-            return sync_service.run_once() ? 0 : 1;
+            return exit_code_for(sync_service.run_once());
         }
 
         if (!config.local_root.empty() && !config.remote_root.empty()) {
@@ -96,7 +109,7 @@ int main(int argc, char *argv[]) {
                 return 0;
             }
 
-            return sync_service.run_once() ? 0 : 1;
+            return exit_code_for(sync_service.run_once());
         }
 
         fs::path root_path = config.vault_path;

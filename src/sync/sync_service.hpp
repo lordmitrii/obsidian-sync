@@ -5,6 +5,11 @@
 #include <filesystem>
 #include <string>
 
+// ActionsFailed takes priority over ConflictsPending when a run has both:
+// a failed action needs attention every run, while an unresolved conflict is
+// expected to sit quietly until the user hand-merges it.
+enum class RunStatus { Success, ActionsFailed, ConflictsPending };
+
 class SyncService {
   public:
     SyncService(std::filesystem::path local_root,
@@ -12,9 +17,11 @@ class SyncService {
                 RemoteBackend &remote_backend,
                 bool apply);
 
-    // Returns false if any action failed to apply (they are logged and left
-    // for the next run); the sync still proceeds as far as it can.
-    bool run_once();
+    // Logs and skips any action that fails to apply (left for the next run)
+    // rather than aborting the whole run. Unresolved conflicts (a
+    // *.conflict-remote copy still sitting next to its file) are reported
+    // separately from action failures via the returned status.
+    RunStatus run_once();
 
   private:
     std::filesystem::path local_root_;

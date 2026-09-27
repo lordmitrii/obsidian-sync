@@ -45,6 +45,28 @@ static void print_manifest_actions(const std::vector<ManifestAction> &actions) {
     std::cout.flush();
 }
 
+// Returns how many conflicts are still unresolved, printing a summary of
+// their paths to stderr when there are any.
+static size_t report_unresolved_conflicts(const std::vector<ManifestAction> &actions) {
+    std::vector<std::string> paths;
+
+    for (const auto &action : actions) {
+        if (action.type == ManifestActionType::Conflict) {
+            paths.push_back(action.path);
+        }
+    }
+
+    if (!paths.empty()) {
+        std::cerr << paths.size() << " unresolved conflict(s):\n";
+
+        for (const auto &path : paths) {
+            std::cerr << "  " << path << "\n";
+        }
+    }
+
+    return paths.size();
+}
+
 // Base state is recorded from the plan-time manifests (what was actually
 // compared and transferred), never by re-reading the file from disk — a
 // re-read could see an edit the user made after the scan, which would wrongly
@@ -201,7 +223,7 @@ SyncService::SyncService(fs::path local_root,
       remote_backend_(remote_backend),
       apply_(apply) {}
 
-bool SyncService::run_once() {
+RunStatus SyncService::run_once() {
     Database db(state_db_path_);
     db.initialize();
 
@@ -212,8 +234,10 @@ bool SyncService::run_once() {
 
     print_manifest_actions(actions);
 
+    size_t conflict_count = report_unresolved_conflicts(actions);
+
     if (!apply_) {
-        return true;
+        return conflict_count > 0 ? RunStatus::ConflictsPending : RunStatus::Success;
     }
 
     auto failed_paths =
@@ -222,8 +246,8 @@ bool SyncService::run_once() {
 
     if (!failed_paths.empty()) {
         std::cerr << failed_paths.size() << " action(s) failed and will be retried next run\n";
-        return false;
+        return RunStatus::ActionsFailed;
     }
 
-    return true;
+    return conflict_count > 0 ? RunStatus::ConflictsPending : RunStatus::Success;
 }
