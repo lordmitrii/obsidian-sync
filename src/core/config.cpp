@@ -52,6 +52,7 @@ void print_usage() {
         "  --server-root <path>        Directory to serve\n"
         "  --server-host <host>        Address to bind (default: 127.0.0.1)\n"
         "  --server-port <port>        Port to bind (default: 38471)\n"
+        "  --trusted-proxy <ip>        Trust X-Real-IP for rate limiting when the peer is this IP\n"
         "  --help, -h                  Show this message\n";
 }
 
@@ -112,6 +113,12 @@ Config parse_args(int argc, char *argv[]) {
             if (config.server_port <= 0 || config.server_port > 65535) {
                 throw std::runtime_error("--server-port must be between 1 and 65535");
             }
+        } else if (arg == "--trusted-proxy") {
+            if (i + 1 >= argc) {
+                throw std::runtime_error("--trusted-proxy requires an IP address");
+            }
+
+            config.trusted_proxy = argv[++i];
         } else if (arg == "--compare-manifests") {
             if (i + 2 >= argc) {
                 throw std::runtime_error("--compare-manifests requires two manifest paths");

@@ -8,7 +8,7 @@ Type=simple
 User=obsidian-sync
 Group=obsidian-sync
 EnvironmentFile=/etc/obsidian-sync/env
-ExecStart=/usr/local/bin/obsidian-sync-server --server-root /var/lib/obsidian-sync --server-host 127.0.0.1 --server-port 38471
+ExecStart=/usr/local/bin/obsidian-sync-server --server-root /var/lib/obsidian-sync --server-host 127.0.0.1 --server-port 38471 --trusted-proxy 127.0.0.1
 Restart=on-failure
 RestartSec=5
 

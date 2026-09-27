@@ -54,19 +54,32 @@ static bool is_authorized(const httplib::Request &req, const std::string &bearer
                                 bearer_authorization_header(bearer_token));
 }
 
+// Only trust X-Real-IP when the request actually came from the configured
+// proxy's own address; otherwise a client could set the header itself and
+// spread its requests across fake keys to dodge the rate limit.
+static std::string rate_limit_key(const httplib::Request &req, const std::string &trusted_proxy) {
+    if (!trusted_proxy.empty() && req.remote_addr == trusted_proxy && req.has_header("X-Real-IP")) {
+        return req.get_header_value("X-Real-IP");
+    }
+
+    return req.remote_addr;
+}
+
 void run_http_server(const fs::path &server_root,
                      const std::string &host,
                      int port,
                      const std::string &bearer_token,
                      std::size_t max_upload_bytes,
-                     int rate_limit_per_minute) {
+                     int rate_limit_per_minute,
+                     const std::string &trusted_proxy) {
     httplib::Server server;
     RateLimiter rate_limiter(rate_limit_per_minute);
 
     server.set_payload_max_length(max_upload_bytes);
     server.set_pre_routing_handler(
-        [&bearer_token, &rate_limiter](const httplib::Request &req, httplib::Response &res) {
-            if (!rate_limiter.allow(req.remote_addr)) {
+        [&bearer_token, &rate_limiter, &trusted_proxy](const httplib::Request &req,
+                                                        httplib::Response &res) {
+            if (!rate_limiter.allow(rate_limit_key(req, trusted_proxy))) {
                 res.status = 429;
                 res.set_content("Too many requests\n", "text/plain");
                 return httplib::Server::HandlerResponse::Handled;

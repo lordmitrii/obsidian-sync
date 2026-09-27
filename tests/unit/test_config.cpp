@@ -59,10 +59,23 @@ static void test_accepts_valid_numbers() {
     expect(with_interval.watch_interval_seconds == 45, "interval_accepts_plain_number");
 }
 
+static void test_trusted_proxy() {
+    Config config = parse({"--server-root", "/tmp", "--trusted-proxy", "127.0.0.1"});
+    expect(config.trusted_proxy == "127.0.0.1", "trusted_proxy_is_captured");
+
+    Config without = parse({"--server-root", "/tmp"});
+    expect(without.trusted_proxy.empty(), "trusted_proxy_defaults_to_empty");
+
+    expect(throws_with({"--server-root", "/tmp", "--trusted-proxy"},
+                       "--trusted-proxy requires an IP address"),
+           "trusted_proxy_requires_a_value");
+}
+
 int main() {
     test_rejects_trailing_garbage_in_port();
     test_rejects_trailing_garbage_in_interval();
     test_accepts_valid_numbers();
+    test_trusted_proxy();
 
     if (failures == 0) {
         std::cout << "All config tests passed\n";

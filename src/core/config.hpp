@@ -14,6 +14,7 @@ struct Config {
     std::filesystem::path server_root;
     std::string server_host = "127.0.0.1";
     int server_port = 38471;
+    std::string trusted_proxy;
     bool server_mode = false;
     bool compare_manifests = false;
     std::string compare_manifest_a;

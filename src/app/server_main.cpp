@@ -37,7 +37,8 @@ int main(int argc, char *argv[]) {
                         config.server_port,
                         token,
                         DEFAULT_MAX_UPLOAD_BYTES,
-                        DEFAULT_RATE_LIMIT_PER_MINUTE);
+                        DEFAULT_RATE_LIMIT_PER_MINUTE,
+                        config.trusted_proxy);
 
     } catch (const std::exception &e) {
         std::cerr << "Error: " << e.what() << "\n";
