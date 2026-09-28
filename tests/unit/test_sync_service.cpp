@@ -136,6 +136,37 @@ static void test_remote_delete_propagates() {
     f.sync();
 
     expect(!fs::exists(f.local / "a.md"), "remote_delete_removes_local");
+    expect(read_file(f.local / ".trash" / "a.md") == "v1", "remote_delete_moves_local_to_trash");
+}
+
+static void test_delete_local_trash_keeps_directory_structure() {
+    Fixture f("trash-nested");
+    write_file(f.local / "notes" / "a.md", "v1");
+    f.sync();
+
+    fs::remove(f.remote / "notes" / "a.md");
+    f.sync();
+
+    expect(!fs::exists(f.local / "notes" / "a.md"), "nested_delete_removes_local");
+    expect(read_file(f.local / ".trash" / "notes" / "a.md") == "v1",
+           "nested_delete_moves_to_trash_keeping_structure");
+}
+
+static void test_repeated_delete_of_same_path_does_not_clobber_trash() {
+    Fixture f("trash-repeat");
+    write_file(f.local / "a.md", "v1");
+    f.sync();
+    fs::remove(f.remote / "a.md");
+    f.sync();
+
+    write_file(f.local / "a.md", "v2");
+    write_file(f.remote / "a.md", "v2");
+    f.sync();
+    fs::remove(f.remote / "a.md");
+    f.sync();
+
+    expect(read_file(f.local / ".trash" / "a.md") == "v1", "first_trashed_copy_is_untouched");
+    expect(read_file(f.local / ".trash" / "a.2.md") == "v2", "second_trashed_copy_gets_a_number");
 }
 
 static void test_conflict_keeps_local_and_saves_remote_copy() {
@@ -299,6 +330,8 @@ int main() {
     test_mass_delete_is_blocked_by_default();
     test_mass_delete_proceeds_with_force_deletes();
     test_small_delete_is_not_blocked();
+    test_delete_local_trash_keeps_directory_structure();
+    test_repeated_delete_of_same_path_does_not_clobber_trash();
     test_edit_during_sync_run_is_not_lost();
 
     if (failures != 0) {

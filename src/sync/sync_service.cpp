@@ -10,6 +10,7 @@
 #include <iostream>
 #include <set>
 #include <stdexcept>
+#include <system_error>
 #include <utility>
 
 namespace fs = std::filesystem;
@@ -35,6 +36,22 @@ static fs::path numbered_conflict_path(const fs::path &first_choice, int n) {
     return first_choice.parent_path() /
            (first_choice.stem().string() + "." + std::to_string(n) +
             first_choice.extension().string());
+}
+
+static fs::path unique_path(const fs::path &first_choice) {
+    if (!fs::exists(first_choice)) {
+        return first_choice;
+    }
+
+    for (int n = 2;; ++n) {
+        fs::path candidate = first_choice.parent_path() /
+                             (first_choice.stem().string() + "." + std::to_string(n) +
+                              first_choice.extension().string());
+
+        if (!fs::exists(candidate)) {
+            return candidate;
+        }
+    }
 }
 
 static void print_manifest_actions(const std::vector<ManifestAction> &actions) {
@@ -180,10 +197,22 @@ static void apply_action(const ManifestAction &action,
         remote_backend.download(action.path, local_path);
         break;
 
-    case ManifestActionType::DeleteLocal:
-        std::cout << "Deleting local " << action.path << "\n";
-        fs::remove(local_path);
+    case ManifestActionType::DeleteLocal: {
+        fs::path trash_destination = unique_path(local_root / ".trash" / action.path);
+        fs::create_directories(trash_destination.parent_path());
+
+        std::cout << "Moving local " << action.path << " to .trash\n";
+
+        std::error_code rename_ec;
+        fs::rename(local_path, trash_destination, rename_ec);
+
+        if (rename_ec) {
+            fs::copy_file(local_path, trash_destination);
+            fs::remove(local_path);
+        }
+
         break;
+    }
 
     case ManifestActionType::DeleteRemote:
         remote_backend.delete_remote(action.path);
