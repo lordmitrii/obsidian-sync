@@ -45,6 +45,34 @@ static void print_manifest_actions(const std::vector<ManifestAction> &actions) {
     std::cout.flush();
 }
 
+static size_t count_deletes(const std::vector<ManifestAction> &actions) {
+    size_t count = 0;
+
+    for (const auto &action : actions) {
+        if (action.type == ManifestActionType::DeleteLocal ||
+            action.type == ManifestActionType::DeleteRemote) {
+            ++count;
+        }
+    }
+
+    return count;
+}
+
+static bool exceeds_delete_limits(size_t delete_count,
+                                  size_t base_size,
+                                  const DeleteSafetyLimits &limits) {
+    if (limits.force || delete_count == 0) {
+        return false;
+    }
+
+    if (delete_count > limits.max_count) {
+        return true;
+    }
+
+    double percent = base_size > 0 ? (100.0 * delete_count / base_size) : 0.0;
+    return percent > limits.max_percent;
+}
+
 static size_t report_unresolved_conflicts(const std::vector<ManifestAction> &actions) {
     std::vector<std::string> paths;
 
@@ -215,11 +243,13 @@ static std::set<std::string> apply_actions(const std::vector<ManifestAction> &ac
 SyncService::SyncService(fs::path local_root,
                          std::string state_db_path,
                          RemoteBackend &remote_backend,
-                         bool apply)
+                         bool apply,
+                         DeleteSafetyLimits delete_limits)
     : local_root_(std::move(local_root)),
       state_db_path_(std::move(state_db_path)),
       remote_backend_(remote_backend),
-      apply_(apply) {}
+      apply_(apply),
+      delete_limits_(delete_limits) {}
 
 RunStatus SyncService::run_once() {
     Database db(state_db_path_);
@@ -236,6 +266,18 @@ RunStatus SyncService::run_once() {
 
     if (!apply_) {
         return conflict_count > 0 ? RunStatus::ConflictsPending : RunStatus::Success;
+    }
+
+    size_t delete_count = count_deletes(actions);
+
+    if (exceeds_delete_limits(delete_count, base_manifest.size(), delete_limits_)) {
+        std::cerr << "Refusing to apply: plan deletes " << delete_count << " of "
+                  << base_manifest.size()
+                  << " known file(s), above the safety limit (--max-deletes "
+                  << delete_limits_.max_count << ", --max-delete-percent "
+                  << delete_limits_.max_percent
+                  << "). Re-run with --force-deletes if this is expected.\n";
+        return RunStatus::DeletesBlocked;
     }
 
     auto failed_paths =

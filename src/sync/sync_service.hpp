@@ -2,17 +2,25 @@
 
 #include "remote_backend.hpp"
 
+#include <cstddef>
 #include <filesystem>
 #include <string>
 
-enum class RunStatus { Success, ActionsFailed, ConflictsPending };
+enum class RunStatus { Success, ActionsFailed, ConflictsPending, DeletesBlocked };
+
+struct DeleteSafetyLimits {
+    bool force = false;
+    size_t max_count = 50;
+    double max_percent = 50.0;
+};
 
 class SyncService {
   public:
     SyncService(std::filesystem::path local_root,
                 std::string state_db_path,
                 RemoteBackend &remote_backend,
-                bool apply);
+                bool apply,
+                DeleteSafetyLimits delete_limits = {});
 
     RunStatus run_once();
 
@@ -21,4 +29,5 @@ class SyncService {
     std::string state_db_path_;
     RemoteBackend &remote_backend_;
     bool apply_;
+    DeleteSafetyLimits delete_limits_;
 };

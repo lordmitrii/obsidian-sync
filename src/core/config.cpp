@@ -21,6 +21,23 @@ static int parse_int_strict(const std::string &text, const std::string &flag_nam
     }
 }
 
+static double parse_double_strict(const std::string &text, const std::string &flag_name) {
+    try {
+        std::size_t consumed = 0;
+        double value = std::stod(text, &consumed);
+
+        if (consumed != text.size()) {
+            throw std::runtime_error(flag_name + " must be a number");
+        }
+
+        return value;
+    } catch (const std::runtime_error &) {
+        throw;
+    } catch (const std::exception &) {
+        throw std::runtime_error(flag_name + " must be a number");
+    }
+}
+
 void print_usage() {
     std::cout <<
         "obsidian-sync client/server\n"
@@ -51,6 +68,10 @@ void print_usage() {
         "  --apply                     Execute the sync plan\n"
         "  --watch                     Keep syncing on an interval (requires --apply)\n"
         "  --interval <seconds>        Seconds between watch runs (default: 30)\n"
+        "  --force-deletes             Apply a plan even if it deletes more than the safety limits\n"
+        "  --max-deletes <n>           Abort if a plan deletes more than this many files (default: 50)\n"
+        "  --max-delete-percent <pct>  Abort if a plan deletes more than this % of the base state "
+        "(default: 50)\n"
         "  --server-root <path>        Directory to serve\n"
         "  --server-host <host>        Address to bind (default: 127.0.0.1)\n"
         "  --server-port <port>        Port to bind (default: 38471)\n"
@@ -173,6 +194,32 @@ Config parse_args(int argc, char *argv[]) {
 
             if (config.watch_interval_seconds <= 0) {
                 throw std::runtime_error("--interval must be greater than zero");
+            }
+        } else if (arg == "--force-deletes") {
+            config.force_deletes = true;
+        } else if (arg == "--max-deletes") {
+            if (i + 1 >= argc) {
+                throw std::runtime_error("--max-deletes requires a number");
+            }
+
+            int value = parse_int_strict(argv[i + 1], "--max-deletes");
+            ++i;
+
+            if (value < 0) {
+                throw std::runtime_error("--max-deletes must not be negative");
+            }
+
+            config.max_delete_count = static_cast<size_t>(value);
+        } else if (arg == "--max-delete-percent") {
+            if (i + 1 >= argc) {
+                throw std::runtime_error("--max-delete-percent requires a number");
+            }
+
+            config.max_delete_percent = parse_double_strict(argv[i + 1], "--max-delete-percent");
+            ++i;
+
+            if (config.max_delete_percent < 0.0 || config.max_delete_percent > 100.0) {
+                throw std::runtime_error("--max-delete-percent must be between 0 and 100");
             }
         } else {
             throw std::runtime_error("Unknown argument: " + arg);

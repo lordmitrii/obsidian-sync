@@ -26,6 +26,8 @@ static int exit_code_for(RunStatus status) {
         return 1;
     case RunStatus::ConflictsPending:
         return 2;
+    case RunStatus::DeletesBlocked:
+        return 3;
     }
 
     return 1;
@@ -87,7 +89,10 @@ int main(int argc, char *argv[]) {
             std::string token = load_required_bearer_token();
             HttpRemoteBackend backend(config.remote_url, token, DEFAULT_MAX_UPLOAD_BYTES,
                                       config.cacert_path);
-            SyncService sync_service(config.local_root, config.state_db_path, backend, config.apply);
+            DeleteSafetyLimits delete_limits{config.force_deletes, config.max_delete_count,
+                                             config.max_delete_percent};
+            SyncService sync_service(config.local_root, config.state_db_path, backend, config.apply,
+                                     delete_limits);
 
             if (config.watch) {
                 run_watch_loop(config, sync_service);
@@ -109,7 +114,10 @@ int main(int argc, char *argv[]) {
             }
 
             LocalRemoteBackend backend(config.remote_root);
-            SyncService sync_service(config.local_root, config.state_db_path, backend, config.apply);
+            DeleteSafetyLimits delete_limits{config.force_deletes, config.max_delete_count,
+                                             config.max_delete_percent};
+            SyncService sync_service(config.local_root, config.state_db_path, backend, config.apply,
+                                     delete_limits);
 
             if (config.watch) {
                 run_watch_loop(config, sync_service);
