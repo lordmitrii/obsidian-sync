@@ -12,3 +12,5 @@ void atomic_write_file(const std::filesystem::path &path, const std::string &bod
 // Copies `source` to `destination` the same way: via a temporary file in
 // destination's directory, renamed into place once the copy succeeds.
 void atomic_copy_file(const std::filesystem::path &source, const std::filesystem::path &destination);
+
+std::filesystem::path unique_path(const std::filesystem::path &first_choice);

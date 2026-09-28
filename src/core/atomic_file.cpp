@@ -65,3 +65,19 @@ void atomic_copy_file(const fs::path &source, const fs::path &destination) {
                                  ": " + rename_ec.message());
     }
 }
+
+fs::path unique_path(const fs::path &first_choice) {
+    if (!fs::exists(first_choice)) {
+        return first_choice;
+    }
+
+    for (int n = 2;; ++n) {
+        fs::path candidate = first_choice.parent_path() /
+                             (first_choice.stem().string() + "." + std::to_string(n) +
+                              first_choice.extension().string());
+
+        if (!fs::exists(candidate)) {
+            return candidate;
+        }
+    }
+}

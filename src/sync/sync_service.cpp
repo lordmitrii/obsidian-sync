@@ -1,5 +1,6 @@
 #include "sync_service.hpp"
 
+#include "atomic_file.hpp"
 #include "db.hpp"
 #include "hasher.hpp"
 #include "manifest_action.hpp"
@@ -36,22 +37,6 @@ static fs::path numbered_conflict_path(const fs::path &first_choice, int n) {
     return first_choice.parent_path() /
            (first_choice.stem().string() + "." + std::to_string(n) +
             first_choice.extension().string());
-}
-
-static fs::path unique_path(const fs::path &first_choice) {
-    if (!fs::exists(first_choice)) {
-        return first_choice;
-    }
-
-    for (int n = 2;; ++n) {
-        fs::path candidate = first_choice.parent_path() /
-                             (first_choice.stem().string() + "." + std::to_string(n) +
-                              first_choice.extension().string());
-
-        if (!fs::exists(candidate)) {
-            return candidate;
-        }
-    }
 }
 
 static void print_manifest_actions(const std::vector<ManifestAction> &actions) {
