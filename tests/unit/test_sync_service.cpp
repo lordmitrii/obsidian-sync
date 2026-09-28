@@ -51,6 +51,12 @@ struct Fixture {
         SyncService service(local, state, backend, true);
         return service.run_once();
     }
+
+    RunStatus sync_with_limits(DeleteSafetyLimits limits) {
+        LocalRemoteBackend backend(remote);
+        SyncService service(local, state, backend, true, limits);
+        return service.run_once();
+    }
 };
 
 // Simulates the user saving a local file mid-run: load_manifest() is called
@@ -205,6 +211,64 @@ static void test_one_failed_action_does_not_block_the_others() {
     expect(read_file(f.remote / "bad.md") == "v1", "retried_upload_eventually_applied");
 }
 
+static void test_mass_delete_is_blocked_by_default() {
+    Fixture f("mass-delete");
+
+    for (int i = 0; i < 10; ++i) {
+        write_file(f.local / ("note" + std::to_string(i) + ".md"), "v1");
+    }
+
+    f.sync();
+
+    for (int i = 0; i < 10; ++i) {
+        fs::remove(f.local / ("note" + std::to_string(i) + ".md"));
+    }
+
+    RunStatus status = f.sync();
+
+    expect(status == RunStatus::DeletesBlocked, "mass_delete_reports_deletes_blocked");
+
+    for (int i = 0; i < 10; ++i) {
+        expect(fs::exists(f.remote / ("note" + std::to_string(i) + ".md")),
+               "mass_delete_did_not_touch_remote_" + std::to_string(i));
+    }
+}
+
+static void test_mass_delete_proceeds_with_force_deletes() {
+    Fixture f("mass-delete-forced");
+
+    for (int i = 0; i < 10; ++i) {
+        write_file(f.local / ("note" + std::to_string(i) + ".md"), "v1");
+    }
+
+    f.sync();
+
+    for (int i = 0; i < 10; ++i) {
+        fs::remove(f.local / ("note" + std::to_string(i) + ".md"));
+    }
+
+    RunStatus status = f.sync_with_limits(DeleteSafetyLimits{true, 50, 50.0});
+
+    expect(status == RunStatus::Success, "forced_mass_delete_succeeds");
+    expect(!fs::exists(f.remote / "note0.md"), "forced_mass_delete_removes_remote");
+}
+
+static void test_small_delete_is_not_blocked() {
+    Fixture f("small-delete");
+
+    for (int i = 0; i < 10; ++i) {
+        write_file(f.local / ("note" + std::to_string(i) + ".md"), "v1");
+    }
+
+    f.sync();
+
+    fs::remove(f.local / "note0.md");
+    RunStatus status = f.sync();
+
+    expect(status == RunStatus::Success, "small_delete_not_blocked");
+    expect(!fs::exists(f.remote / "note0.md"), "small_delete_removes_remote");
+}
+
 static void test_edit_during_sync_run_is_not_lost() {
     Fixture f("mid-run-edit");
     write_file(f.local / "a.md", "v1");
@@ -232,6 +296,9 @@ int main() {
     test_repeated_conflict_does_not_fail_forever();
     test_conflict_gets_a_numbered_copy_when_remote_changes_again();
     test_one_failed_action_does_not_block_the_others();
+    test_mass_delete_is_blocked_by_default();
+    test_mass_delete_proceeds_with_force_deletes();
+    test_small_delete_is_not_blocked();
     test_edit_during_sync_run_is_not_lost();
 
     if (failures != 0) {

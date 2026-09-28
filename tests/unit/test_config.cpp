@@ -86,12 +86,34 @@ static void test_insecure_http_and_cacert() {
            "cacert_requires_a_value");
 }
 
+static void test_delete_safety_limits() {
+    Config defaults = parse({"--local-root", "/tmp", "--remote-root", "/tmp"});
+    expect(!defaults.force_deletes, "force_deletes_defaults_to_false");
+    expect(defaults.max_delete_count == 50, "max_delete_count_defaults_to_50");
+    expect(defaults.max_delete_percent == 50.0, "max_delete_percent_defaults_to_50");
+
+    Config config = parse({"--local-root", "/tmp", "--remote-root", "/tmp", "--force-deletes",
+                           "--max-deletes", "10", "--max-delete-percent", "25.5"});
+    expect(config.force_deletes, "force_deletes_flag_is_captured");
+    expect(config.max_delete_count == 10, "max_delete_count_is_captured");
+    expect(config.max_delete_percent == 25.5, "max_delete_percent_is_captured");
+
+    expect(throws_with({"--local-root", "/tmp", "--remote-root", "/tmp", "--max-deletes", "abc"},
+                       "--max-deletes must be a number"),
+           "max_deletes_rejects_non_numeric");
+    expect(throws_with({"--local-root", "/tmp", "--remote-root", "/tmp", "--max-delete-percent",
+                        "150"},
+                       "--max-delete-percent must be between 0 and 100"),
+           "max_delete_percent_rejects_out_of_range");
+}
+
 int main() {
     test_rejects_trailing_garbage_in_port();
     test_rejects_trailing_garbage_in_interval();
     test_accepts_valid_numbers();
     test_trusted_proxy();
     test_insecure_http_and_cacert();
+    test_delete_safety_limits();
 
     if (failures == 0) {
         std::cout << "All config tests passed\n";
