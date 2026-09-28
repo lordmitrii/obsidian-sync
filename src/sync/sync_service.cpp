@@ -58,6 +58,8 @@ static size_t count_deletes(const std::vector<ManifestAction> &actions) {
     return count;
 }
 
+static constexpr size_t kMinBaseSizeForPercentLimit = 10;
+
 static bool exceeds_delete_limits(size_t delete_count,
                                   size_t base_size,
                                   const DeleteSafetyLimits &limits) {
@@ -69,7 +71,11 @@ static bool exceeds_delete_limits(size_t delete_count,
         return true;
     }
 
-    double percent = base_size > 0 ? (100.0 * delete_count / base_size) : 0.0;
+    if (base_size < kMinBaseSizeForPercentLimit) {
+        return false;
+    }
+
+    double percent = 100.0 * delete_count / base_size;
     return percent > limits.max_percent;
 }
 
