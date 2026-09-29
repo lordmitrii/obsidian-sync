@@ -10,6 +10,7 @@
 #include <fstream>
 #include <httplib.h>
 #include <iostream>
+#include <mutex>
 #include <sstream>
 
 namespace fs = std::filesystem;
@@ -97,8 +98,26 @@ void run_http_server(const fs::path &server_root,
             return httplib::Server::HandlerResponse::Unhandled;
         });
 
-    server.Get("/manifest", [server_root](const httplib::Request &, httplib::Response &res) {
-        auto files = scan_vault(server_root);
+    // Reused across requests so GET /manifest can skip rehashing files whose
+    // size and mtime haven't changed since the last request, the same cache
+    // the client keeps in state.db (see scan_file's known_hashes). Guarded
+    // by a mutex since httplib serves requests from a thread pool; server
+    // and both caches below live for the whole call, same as the rate
+    // limiters captured by reference further up.
+    Manifest manifest_cache;
+    std::mutex manifest_cache_mutex;
+
+    server.Get("/manifest", [server_root, &manifest_cache,
+                             &manifest_cache_mutex](const httplib::Request &, httplib::Response &res) {
+        std::lock_guard<std::mutex> lock(manifest_cache_mutex);
+
+        auto files = scan_vault(server_root, manifest_cache);
+
+        manifest_cache.clear();
+        for (const auto &file : files) {
+            manifest_cache[file.path] = file;
+        }
+
         res.set_content(manifest_to_json(files).dump(2), "application/json");
     });
 
