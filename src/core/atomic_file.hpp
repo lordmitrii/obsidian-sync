@@ -14,3 +14,11 @@ void atomic_write_file(const std::filesystem::path &path, const std::string &bod
 void atomic_copy_file(const std::filesystem::path &source, const std::filesystem::path &destination);
 
 std::filesystem::path unique_path(const std::filesystem::path &first_choice);
+
+// Moves `source` into `trash_root` at `relative_path`, numbering on
+// collision (see unique_path) instead of clobbering an earlier trashed file
+// at the same path. Falls back to copy+remove when rename can't cross
+// filesystems. Returns the path it was moved to.
+std::filesystem::path move_to_trash(const std::filesystem::path &source,
+                                    const std::filesystem::path &trash_root,
+                                    const std::filesystem::path &relative_path);

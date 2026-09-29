@@ -81,3 +81,24 @@ fs::path unique_path(const fs::path &first_choice) {
         }
     }
 }
+
+fs::path move_to_trash(const fs::path &source, const fs::path &trash_root,
+                       const fs::path &relative_path) {
+    fs::path destination = unique_path(trash_root / relative_path);
+    fs::create_directories(destination.parent_path());
+
+    std::error_code rename_ec;
+    fs::rename(source, destination, rename_ec);
+
+    if (rename_ec) {
+        fs::copy_file(source, destination);
+        fs::remove(source);
+    }
+
+    // Recorded as the trashing time, not the file's original content time,
+    // so cleanup_trash can tell how long ago each file was deleted.
+    std::error_code time_ec;
+    fs::last_write_time(destination, fs::file_time_type::clock::now(), time_ec);
+
+    return destination;
+}

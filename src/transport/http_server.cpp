@@ -11,7 +11,6 @@
 #include <httplib.h>
 #include <iostream>
 #include <sstream>
-#include <system_error>
 
 namespace fs = std::filesystem;
 
@@ -168,16 +167,7 @@ void run_http_server(const fs::path &server_root,
         }
 
         if (fs::exists(full_path)) {
-            fs::path trash_destination = unique_path(server_root / ".trash" / fs::path(relative_path));
-            fs::create_directories(trash_destination.parent_path());
-
-            std::error_code rename_ec;
-            fs::rename(full_path, trash_destination, rename_ec);
-
-            if (rename_ec) {
-                fs::copy_file(full_path, trash_destination);
-                fs::remove(full_path);
-            }
+            move_to_trash(full_path, server_root / ".trash", fs::path(relative_path));
         }
 
         res.status = 204;
