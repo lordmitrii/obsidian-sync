@@ -81,6 +81,16 @@ static bool exceeds_delete_limits(size_t delete_count,
     return percent > limits.max_percent;
 }
 
+// Below kMinBaseSizeForPercentLimit, a fully emptied remote can be a
+// legitimate delete of the whole (tiny) vault, same reasoning as the percent
+// check's exemption below. At or above it, every previously known file
+// vanishing at once looks like a misconfigured --server-root/--remote-url or
+// an empty backup, not something a user does on purpose in one run.
+static bool remote_manifest_suspiciously_empty(const Manifest &remote_manifest,
+                                               const Manifest &base_manifest) {
+    return remote_manifest.empty() && base_manifest.size() >= kMinBaseSizeForPercentLimit;
+}
+
 static size_t report_unresolved_conflicts(const std::vector<ManifestAction> &actions) {
     std::vector<std::string> paths;
 
@@ -286,6 +296,15 @@ RunStatus SyncService::run_once() {
 
     if (!apply_) {
         return conflict_count > 0 ? RunStatus::ConflictsPending : RunStatus::Success;
+    }
+
+    if (!delete_limits_.force &&
+        remote_manifest_suspiciously_empty(remote_manifest, base_manifest)) {
+        std::cerr << "Refusing to apply: remote manifest is empty but " << base_manifest.size()
+                  << " file(s) are known from a previous sync (a misconfigured --server-root/"
+                     "--remote-url or an empty backup can look identical). Re-run with "
+                     "--force-deletes if this is expected.\n";
+        return RunStatus::DeletesBlocked;
     }
 
     size_t delete_count = count_deletes(actions);

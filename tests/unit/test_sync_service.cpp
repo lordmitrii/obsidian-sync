@@ -300,6 +300,81 @@ static void test_small_delete_is_not_blocked() {
     expect(!fs::exists(f.remote / "note0.md"), "small_delete_removes_remote");
 }
 
+// 10 files is below --max-deletes' default (50), so this would slip through
+// the count check, and it is not "too small" for the percent check to apply
+// so an empty remote manifest still needs its own, unconditional check.
+static void test_empty_remote_manifest_is_blocked_even_under_max_deletes() {
+    Fixture f("empty-remote-under-max-deletes");
+
+    for (int i = 0; i < 10; ++i) {
+        write_file(f.local / ("note" + std::to_string(i) + ".md"), "v1");
+    }
+
+    f.sync();
+
+    for (int i = 0; i < 10; ++i) {
+        fs::remove(f.remote / ("note" + std::to_string(i) + ".md"));
+    }
+
+    RunStatus status = f.sync();
+
+    expect(status == RunStatus::DeletesBlocked, "empty_remote_manifest_reports_deletes_blocked");
+
+    for (int i = 0; i < 10; ++i) {
+        expect(fs::exists(f.local / ("note" + std::to_string(i) + ".md")),
+               "empty_remote_manifest_kept_local_" + std::to_string(i));
+    }
+}
+
+static void test_empty_remote_manifest_proceeds_with_force_deletes() {
+    Fixture f("empty-remote-forced");
+
+    for (int i = 0; i < 10; ++i) {
+        write_file(f.local / ("note" + std::to_string(i) + ".md"), "v1");
+    }
+
+    f.sync();
+
+    for (int i = 0; i < 10; ++i) {
+        fs::remove(f.remote / ("note" + std::to_string(i) + ".md"));
+    }
+
+    RunStatus status = f.sync_with_limits(DeleteSafetyLimits{true, 50, 50.0});
+
+    expect(status == RunStatus::Success, "empty_remote_manifest_forced_proceeds");
+
+    for (int i = 0; i < 10; ++i) {
+        expect(fs::exists(f.local / ".trash" / ("note" + std::to_string(i) + ".md")),
+               "empty_remote_manifest_forced_trashed_" + std::to_string(i));
+    }
+}
+
+// Below the same threshold, an emptied remote is treated like any other
+// small delete (see test_small_delete_is_not_blocked) rather than refused,
+// since a tiny vault legitimately losing all of its (few) files is common.
+static void test_empty_remote_manifest_on_tiny_vault_is_not_blocked() {
+    Fixture f("empty-remote-tiny");
+
+    for (int i = 0; i < 3; ++i) {
+        write_file(f.local / ("note" + std::to_string(i) + ".md"), "v1");
+    }
+
+    f.sync();
+
+    for (int i = 0; i < 3; ++i) {
+        fs::remove(f.remote / ("note" + std::to_string(i) + ".md"));
+    }
+
+    RunStatus status = f.sync();
+
+    expect(status == RunStatus::Success, "empty_remote_manifest_tiny_vault_not_blocked");
+
+    for (int i = 0; i < 3; ++i) {
+        expect(fs::exists(f.local / ".trash" / ("note" + std::to_string(i) + ".md")),
+               "empty_remote_manifest_tiny_vault_trashed_" + std::to_string(i));
+    }
+}
+
 static void test_edit_during_sync_run_is_not_lost() {
     Fixture f("mid-run-edit");
     write_file(f.local / "a.md", "v1");
@@ -330,6 +405,9 @@ int main() {
     test_mass_delete_is_blocked_by_default();
     test_mass_delete_proceeds_with_force_deletes();
     test_small_delete_is_not_blocked();
+    test_empty_remote_manifest_is_blocked_even_under_max_deletes();
+    test_empty_remote_manifest_proceeds_with_force_deletes();
+    test_empty_remote_manifest_on_tiny_vault_is_not_blocked();
     test_delete_local_trash_keeps_directory_structure();
     test_repeated_delete_of_same_path_does_not_clobber_trash();
     test_edit_during_sync_run_is_not_lost();
