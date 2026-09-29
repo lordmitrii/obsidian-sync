@@ -5,6 +5,21 @@
 
 namespace fs = std::filesystem;
 
+// A cached hash is trusted only when the file's mtime is at least a second
+// old: a file written and then rewritten within the same mtime tick would
+// otherwise keep matching a now-stale cached hash forever, the same race
+// git's index guards against.
+static bool is_racy_mtime(std::int64_t modified_time) {
+    // Compared using the filesystem clock, not system_clock: their epochs
+    // are not guaranteed to line up, and get_modified_time() below already
+    // reads mtime through the filesystem clock.
+    auto now = std::chrono::duration_cast<std::chrono::seconds>(
+                   fs::file_time_type::clock::now().time_since_epoch())
+                   .count();
+
+    return now - modified_time <= 1;
+}
+
 bool should_ignore(const fs::path &path) {
     if (path.filename() == ".DS_Store")
         return true;
@@ -55,7 +70,8 @@ std::int64_t get_modified_time(const fs::path &path) {
     return seconds.count();
 }
 
-std::optional<FileMeta> scan_file(const fs::path &root, const fs::path &relative_path) {
+std::optional<FileMeta> scan_file(const fs::path &root, const fs::path &relative_path,
+                                  const Manifest &known_hashes) {
     fs::path full_path = root / relative_path;
 
     if (fs::is_symlink(full_path)) {
@@ -70,12 +86,18 @@ std::optional<FileMeta> scan_file(const fs::path &root, const fs::path &relative
     meta.path = relative_path.generic_string();
     meta.size = fs::file_size(full_path);
     meta.modified_time = get_modified_time(full_path);
-    meta.hash = sha256_file(full_path);
+
+    auto cached = known_hashes.find(meta.path);
+    bool cache_hit = cached != known_hashes.end() && cached->second.size == meta.size &&
+                     cached->second.modified_time == meta.modified_time &&
+                     !is_racy_mtime(meta.modified_time);
+
+    meta.hash = cache_hit ? cached->second.hash : sha256_file(full_path);
 
     return meta;
 }
 
-std::vector<FileMeta> scan_vault(const fs::path &vault_path) {
+std::vector<FileMeta> scan_vault(const fs::path &vault_path, const Manifest &known_hashes) {
     std::vector<FileMeta> files;
 
     for (const auto &entry : fs::recursive_directory_iterator(vault_path)) {
@@ -91,7 +113,7 @@ std::vector<FileMeta> scan_vault(const fs::path &vault_path) {
 
         fs::path relative_path = fs::relative(full_path, vault_path);
 
-        auto meta = scan_file(vault_path, relative_path);
+        auto meta = scan_file(vault_path, relative_path, known_hashes);
 
         if (meta.has_value()) {
             files.push_back(*meta);

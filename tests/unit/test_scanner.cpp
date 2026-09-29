@@ -1,5 +1,6 @@
 #include "scanner.hpp"
 
+#include <chrono>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -65,11 +66,119 @@ static void test_skips_symlinks() {
     fs::remove_all(root);
 }
 
+static void write_file(const fs::path &path, const std::string &content) {
+    std::ofstream out(path, std::ios::binary);
+    out << content;
+}
+
+static fs::path fresh_dir(const std::string &name) {
+    fs::path root = fs::temp_directory_path() / ("obsidian-sync-scanner-test-" + name);
+    fs::remove_all(root);
+    fs::create_directories(root);
+    return root;
+}
+
+static void test_reuses_cached_hash_when_size_and_mtime_match() {
+    fs::path root = fresh_dir("cache-hit");
+    fs::path note = root / "note.md";
+    auto old_time = fs::file_time_type::clock::now() - std::chrono::hours(1);
+
+    write_file(note, "aaaa");
+    fs::last_write_time(note, old_time);
+    auto original = scan_file(root, "note.md");
+    expect(original.has_value(), "cache_hit_setup_scans_file");
+
+    // Same size as "aaaa" and the same recorded mtime: a cache hit should
+    // reuse the stale hash instead of rehashing this new content.
+    write_file(note, "bbbb");
+    fs::last_write_time(note, old_time);
+
+    Manifest cache;
+    cache[original->path] = *original;
+
+    auto reused = scan_file(root, "note.md", cache);
+    expect(reused.has_value() && reused->hash == original->hash,
+           "cache_hit_reuses_stale_hash_when_size_and_mtime_match");
+
+    fs::remove_all(root);
+}
+
+static void test_rehashes_when_mtime_differs_from_cache() {
+    fs::path root = fresh_dir("cache-miss-mtime");
+    fs::path note = root / "note.md";
+    auto old_time = fs::file_time_type::clock::now() - std::chrono::hours(1);
+
+    write_file(note, "aaaa");
+    fs::last_write_time(note, old_time);
+    auto original = scan_file(root, "note.md");
+    expect(original.has_value(), "cache_miss_mtime_setup_scans_file");
+
+    write_file(note, "bbbb");
+    fs::last_write_time(note, old_time + std::chrono::seconds(10));
+
+    Manifest cache;
+    cache[original->path] = *original;
+
+    auto result = scan_file(root, "note.md", cache);
+    expect(result.has_value() && result->hash != original->hash,
+           "cache_miss_on_mtime_change_rehashes");
+
+    fs::remove_all(root);
+}
+
+static void test_rehashes_when_size_differs_from_cache() {
+    fs::path root = fresh_dir("cache-miss-size");
+    fs::path note = root / "note.md";
+    auto old_time = fs::file_time_type::clock::now() - std::chrono::hours(1);
+
+    write_file(note, "aaaa");
+    fs::last_write_time(note, old_time);
+    auto original = scan_file(root, "note.md");
+    expect(original.has_value(), "cache_miss_size_setup_scans_file");
+
+    write_file(note, "aaaaaaaa");
+    fs::last_write_time(note, old_time);
+
+    Manifest cache;
+    cache[original->path] = *original;
+
+    auto result = scan_file(root, "note.md", cache);
+    expect(result.has_value() && result->hash != original->hash,
+           "cache_miss_on_size_change_rehashes");
+
+    fs::remove_all(root);
+}
+
+static void test_racy_mtime_ignores_cache() {
+    fs::path root = fresh_dir("cache-racy-mtime");
+    fs::path note = root / "note.md";
+
+    write_file(note, "aaaa");
+    auto fresh = scan_file(root, "note.md");
+    expect(fresh.has_value(), "racy_mtime_setup_scans_file");
+
+    FileMeta stale_but_matching = *fresh;
+    stale_but_matching.hash = "not-the-real-hash";
+
+    Manifest cache;
+    cache[fresh->path] = stale_but_matching;
+
+    auto result = scan_file(root, "note.md", cache);
+    expect(result.has_value() && result->hash == fresh->hash,
+           "racy_mtime_ignores_cache_and_rehashes");
+
+    fs::remove_all(root);
+}
+
 int main() {
     test_ignores_obsidian_noise();
     test_does_not_ignore_real_notes();
     test_does_not_match_substrings();
     test_skips_symlinks();
+    test_reuses_cached_hash_when_size_and_mtime_match();
+    test_rehashes_when_mtime_differs_from_cache();
+    test_rehashes_when_size_differs_from_cache();
+    test_racy_mtime_ignores_cache();
 
     if (failures == 0) {
         std::cout << "All scanner tests passed\n";

@@ -275,7 +275,7 @@ RunStatus SyncService::run_once() {
     db.initialize();
 
     auto base_manifest = db.load_as_manifest();
-    auto local_manifest = files_to_manifest(scan_vault(local_root_));
+    auto local_manifest = files_to_manifest(scan_vault(local_root_, base_manifest));
     auto remote_manifest = remote_backend_.load_manifest();
     auto actions = compare_three_way(base_manifest, local_manifest, remote_manifest);
 

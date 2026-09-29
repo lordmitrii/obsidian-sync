@@ -142,7 +142,7 @@ int main(int argc, char *argv[]) {
         Database db(config.state_db_path);
         db.initialize();
 
-        auto files = scan_vault(root_path);
+        auto files = scan_vault(root_path, db.load_as_manifest());
 
         if (!config.manifest_file_path.empty()) {
             write_json_manifest_to_file(files, config.manifest_file_path);
