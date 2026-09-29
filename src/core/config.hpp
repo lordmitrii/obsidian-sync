@@ -31,6 +31,7 @@ struct Config {
     bool force_deletes = false;
     size_t max_delete_count = 50;
     double max_delete_percent = 50.0;
+    int trash_retention_days = 30;
 };
 
 Config parse_args(int argc, char *argv[]);

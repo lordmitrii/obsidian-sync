@@ -1,6 +1,7 @@
 #include "local_remote_backend.hpp"
 #include "sync_service.hpp"
 
+#include <chrono>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -55,6 +56,12 @@ struct Fixture {
     RunStatus sync_with_limits(DeleteSafetyLimits limits) {
         LocalRemoteBackend backend(remote);
         SyncService service(local, state, backend, true, limits);
+        return service.run_once();
+    }
+
+    RunStatus sync_with_trash_retention(int retention_days) {
+        LocalRemoteBackend backend(remote);
+        SyncService service(local, state, backend, true, DeleteSafetyLimits{}, retention_days);
         return service.run_once();
     }
 };
@@ -167,6 +174,38 @@ static void test_repeated_delete_of_same_path_does_not_clobber_trash() {
 
     expect(read_file(f.local / ".trash" / "a.md") == "v1", "first_trashed_copy_is_untouched");
     expect(read_file(f.local / ".trash" / "a.2.md") == "v2", "second_trashed_copy_gets_a_number");
+}
+
+static void test_trash_cleanup_removes_old_entry_on_next_sync() {
+    Fixture f("trash-cleanup");
+    write_file(f.local / "a.md", "v1");
+    f.sync();
+    fs::remove(f.remote / "a.md");
+    f.sync();
+
+    auto old_time = fs::file_time_type::clock::now() - std::chrono::hours(24 * 40);
+    fs::last_write_time(f.local / ".trash" / "a.md", old_time);
+
+    write_file(f.local / "b.md", "v2");
+    f.sync();
+
+    expect(!fs::exists(f.local / ".trash" / "a.md"), "trash_cleanup_removes_old_entry_on_next_sync");
+}
+
+static void test_trash_retention_days_zero_disables_cleanup() {
+    Fixture f("trash-retention-disabled");
+    write_file(f.local / "a.md", "v1");
+    f.sync();
+    fs::remove(f.remote / "a.md");
+    f.sync();
+
+    auto old_time = fs::file_time_type::clock::now() - std::chrono::hours(24 * 400);
+    fs::last_write_time(f.local / ".trash" / "a.md", old_time);
+
+    write_file(f.local / "b.md", "v2");
+    f.sync_with_trash_retention(0);
+
+    expect(fs::exists(f.local / ".trash" / "a.md"), "trash_retention_zero_disables_cleanup");
 }
 
 static void test_conflict_keeps_local_and_saves_remote_copy() {
@@ -410,6 +449,8 @@ int main() {
     test_empty_remote_manifest_on_tiny_vault_is_not_blocked();
     test_delete_local_trash_keeps_directory_structure();
     test_repeated_delete_of_same_path_does_not_clobber_trash();
+    test_trash_cleanup_removes_old_entry_on_next_sync();
+    test_trash_retention_days_zero_disables_cleanup();
     test_edit_during_sync_run_is_not_lost();
 
     if (failures != 0) {

@@ -1,9 +1,11 @@
 #include "atomic_file.hpp"
 
+#include <chrono>
 #include <fstream>
 #include <random>
 #include <stdexcept>
 #include <system_error>
+#include <vector>
 
 namespace fs = std::filesystem;
 
@@ -101,4 +103,43 @@ fs::path move_to_trash(const fs::path &source, const fs::path &trash_root,
     fs::last_write_time(destination, fs::file_time_type::clock::now(), time_ec);
 
     return destination;
+}
+
+void cleanup_trash(const fs::path &trash_root, int retention_days) {
+    if (retention_days <= 0 || !fs::exists(trash_root)) {
+        return;
+    }
+
+    auto cutoff = fs::file_time_type::clock::now() - std::chrono::hours(24 * retention_days);
+
+    for (const auto &entry : fs::recursive_directory_iterator(trash_root)) {
+        if (!entry.is_regular_file()) {
+            continue;
+        }
+
+        std::error_code time_ec;
+        auto mtime = fs::last_write_time(entry.path(), time_ec);
+
+        if (!time_ec && mtime < cutoff) {
+            fs::remove(entry.path());
+        }
+    }
+
+    std::vector<fs::path> directories;
+
+    for (const auto &entry : fs::recursive_directory_iterator(trash_root)) {
+        if (entry.is_directory()) {
+            directories.push_back(entry.path());
+        }
+    }
+
+    // Deepest paths first so a directory left empty by removing its only
+    // (now-empty) subdirectory gets pruned too, in the same pass.
+    std::sort(directories.begin(), directories.end(),
+              [](const fs::path &a, const fs::path &b) { return a.string().size() > b.string().size(); });
+
+    for (const auto &dir : directories) {
+        std::error_code remove_ec;
+        fs::remove(dir, remove_ec);
+    }
 }

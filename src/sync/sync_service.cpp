@@ -261,12 +261,14 @@ SyncService::SyncService(fs::path local_root,
                          std::string state_db_path,
                          RemoteBackend &remote_backend,
                          bool apply,
-                         DeleteSafetyLimits delete_limits)
+                         DeleteSafetyLimits delete_limits,
+                         int trash_retention_days)
     : local_root_(std::move(local_root)),
       state_db_path_(std::move(state_db_path)),
       remote_backend_(remote_backend),
       apply_(apply),
-      delete_limits_(delete_limits) {}
+      delete_limits_(delete_limits),
+      trash_retention_days_(trash_retention_days) {}
 
 RunStatus SyncService::run_once() {
     Database db(state_db_path_);
@@ -309,6 +311,7 @@ RunStatus SyncService::run_once() {
     auto failed_paths =
         apply_actions(actions, local_root_, local_manifest, remote_manifest, remote_backend_);
     update_base_state_after_apply(db, actions, local_manifest, remote_manifest, failed_paths);
+    cleanup_trash(local_root_ / ".trash", trash_retention_days_);
 
     if (!failed_paths.empty()) {
         std::cerr << failed_paths.size() << " action(s) failed and will be retried next run\n";

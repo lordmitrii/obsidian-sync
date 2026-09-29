@@ -92,7 +92,7 @@ int main(int argc, char *argv[]) {
             DeleteSafetyLimits delete_limits{config.force_deletes, config.max_delete_count,
                                              config.max_delete_percent};
             SyncService sync_service(config.local_root, config.state_db_path, backend, config.apply,
-                                     delete_limits);
+                                     delete_limits, config.trash_retention_days);
 
             if (config.watch) {
                 run_watch_loop(config, sync_service);
@@ -117,7 +117,7 @@ int main(int argc, char *argv[]) {
             DeleteSafetyLimits delete_limits{config.force_deletes, config.max_delete_count,
                                              config.max_delete_percent};
             SyncService sync_service(config.local_root, config.state_db_path, backend, config.apply,
-                                     delete_limits);
+                                     delete_limits, config.trash_retention_days);
 
             if (config.watch) {
                 run_watch_loop(config, sync_service);

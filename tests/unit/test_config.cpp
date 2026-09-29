@@ -107,6 +107,20 @@ static void test_delete_safety_limits() {
            "max_delete_percent_rejects_out_of_range");
 }
 
+static void test_trash_retention_days() {
+    Config defaults = parse({"--local-root", "/tmp", "--remote-root", "/tmp"});
+    expect(defaults.trash_retention_days == 30, "trash_retention_days_defaults_to_30");
+
+    Config config =
+        parse({"--local-root", "/tmp", "--remote-root", "/tmp", "--trash-retention-days", "7"});
+    expect(config.trash_retention_days == 7, "trash_retention_days_is_captured");
+
+    expect(throws_with({"--local-root", "/tmp", "--remote-root", "/tmp", "--trash-retention-days",
+                        "abc"},
+                       "--trash-retention-days must be a number"),
+           "trash_retention_days_rejects_non_numeric");
+}
+
 int main() {
     test_rejects_trailing_garbage_in_port();
     test_rejects_trailing_garbage_in_interval();
@@ -114,6 +128,7 @@ int main() {
     test_trusted_proxy();
     test_insecure_http_and_cacert();
     test_delete_safety_limits();
+    test_trash_retention_days();
 
     if (failures == 0) {
         std::cout << "All config tests passed\n";

@@ -20,7 +20,8 @@ class SyncService {
                 std::string state_db_path,
                 RemoteBackend &remote_backend,
                 bool apply,
-                DeleteSafetyLimits delete_limits = {});
+                DeleteSafetyLimits delete_limits = {},
+                int trash_retention_days = 30);
 
     RunStatus run_once();
 
@@ -30,4 +31,5 @@ class SyncService {
     RemoteBackend &remote_backend_;
     bool apply_;
     DeleteSafetyLimits delete_limits_;
+    int trash_retention_days_;
 };

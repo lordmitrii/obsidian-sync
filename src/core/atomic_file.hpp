@@ -22,3 +22,8 @@ std::filesystem::path unique_path(const std::filesystem::path &first_choice);
 std::filesystem::path move_to_trash(const std::filesystem::path &source,
                                     const std::filesystem::path &trash_root,
                                     const std::filesystem::path &relative_path);
+
+// Permanently removes files under trash_root that were moved there more
+// than retention_days ago, then prunes any directories left empty. A
+// retention_days of 0 or less disables cleanup.
+void cleanup_trash(const std::filesystem::path &trash_root, int retention_days);

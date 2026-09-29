@@ -72,6 +72,8 @@ void print_usage() {
         "  --max-deletes <n>           Abort if a plan deletes more than this many files (default: 50)\n"
         "  --max-delete-percent <pct>  Abort if a plan deletes more than this % of the base state "
         "(default: 50)\n"
+        "  --trash-retention-days <n>  Permanently remove .trash contents older than this many days "
+        "(default: 30, 0 disables cleanup)\n"
         "  --server-root <path>        Directory to serve\n"
         "  --server-host <host>        Address to bind (default: 127.0.0.1)\n"
         "  --server-port <port>        Port to bind (default: 38471)\n"
@@ -221,6 +223,13 @@ Config parse_args(int argc, char *argv[]) {
             if (config.max_delete_percent < 0.0 || config.max_delete_percent > 100.0) {
                 throw std::runtime_error("--max-delete-percent must be between 0 and 100");
             }
+        } else if (arg == "--trash-retention-days") {
+            if (i + 1 >= argc) {
+                throw std::runtime_error("--trash-retention-days requires a number");
+            }
+
+            config.trash_retention_days = parse_int_strict(argv[i + 1], "--trash-retention-days");
+            ++i;
         } else {
             throw std::runtime_error("Unknown argument: " + arg);
         }

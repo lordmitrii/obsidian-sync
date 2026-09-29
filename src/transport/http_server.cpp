@@ -68,7 +68,8 @@ void run_http_server(const fs::path &server_root,
                      const std::string &bearer_token,
                      std::size_t max_upload_bytes,
                      int rate_limit_per_minute,
-                     const std::string &trusted_proxy) {
+                     const std::string &trusted_proxy,
+                     int trash_retention_days) {
     httplib::Server server;
     RateLimiter authenticated_limiter(rate_limit_per_minute);
     RateLimiter unauthenticated_limiter(rate_limit_per_minute);
@@ -149,7 +150,8 @@ void run_http_server(const fs::path &server_root,
         res.status = 204;
     });
 
-    server.Delete("/file", [server_root](const httplib::Request &req, httplib::Response &res) {
+    server.Delete("/file", [server_root, trash_retention_days](const httplib::Request &req,
+                                                                httplib::Response &res) {
         std::string relative_path;
 
         if (!request_path(req, relative_path)) {
@@ -168,6 +170,7 @@ void run_http_server(const fs::path &server_root,
 
         if (fs::exists(full_path)) {
             move_to_trash(full_path, server_root / ".trash", fs::path(relative_path));
+            cleanup_trash(server_root / ".trash", trash_retention_days);
         }
 
         res.status = 204;

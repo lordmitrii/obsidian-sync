@@ -1,5 +1,6 @@
 #include "atomic_file.hpp"
 
+#include <chrono>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -129,6 +130,47 @@ static void test_move_to_trash_numbers_on_collision() {
     fs::remove_all(dir);
 }
 
+static void age_file(const fs::path &path, int days_old) {
+    auto old_time = fs::file_time_type::clock::now() - std::chrono::hours(24 * days_old);
+    fs::last_write_time(path, old_time);
+}
+
+static void test_cleanup_trash_removes_old_files_and_keeps_recent() {
+    const auto dir = fresh_dir("cleanup-mixed");
+    write_file(dir / "old.md", "gone");
+    write_file(dir / "recent.md", "kept");
+    age_file(dir / "old.md", 40);
+    age_file(dir / "recent.md", 5);
+
+    cleanup_trash(dir, 30);
+
+    expect(!fs::exists(dir / "old.md"), "cleanup_trash_removes_file_past_retention");
+    expect(fs::exists(dir / "recent.md"), "cleanup_trash_keeps_file_within_retention");
+    fs::remove_all(dir);
+}
+
+static void test_cleanup_trash_prunes_empty_directories() {
+    const auto dir = fresh_dir("cleanup-empty-dirs");
+    write_file(dir / "notes/old.md", "gone");
+    age_file(dir / "notes/old.md", 40);
+
+    cleanup_trash(dir, 30);
+
+    expect(!fs::exists(dir / "notes"), "cleanup_trash_prunes_now_empty_directory");
+    fs::remove_all(dir);
+}
+
+static void test_cleanup_trash_disabled_by_non_positive_retention() {
+    const auto dir = fresh_dir("cleanup-disabled");
+    write_file(dir / "old.md", "still here");
+    age_file(dir / "old.md", 400);
+
+    cleanup_trash(dir, 0);
+
+    expect(fs::exists(dir / "old.md"), "cleanup_trash_zero_retention_disables_cleanup");
+    fs::remove_all(dir);
+}
+
 int main() {
     test_write_creates_new_file();
     test_write_creates_parent_directories();
@@ -138,6 +180,9 @@ int main() {
     test_move_to_trash_moves_file();
     test_move_to_trash_keeps_relative_structure();
     test_move_to_trash_numbers_on_collision();
+    test_cleanup_trash_removes_old_files_and_keeps_recent();
+    test_cleanup_trash_prunes_empty_directories();
+    test_cleanup_trash_disabled_by_non_positive_retention();
 
     if (failures != 0) {
         std::cerr << failures << " test case(s) failed\n";
