@@ -62,6 +62,14 @@ bool should_ignore(const fs::path &path) {
     return false;
 }
 
+bool should_ignore(const fs::path &path, const fs::path &relative_path,
+                   const IgnoreRules &extra_rules) {
+    if (should_ignore(path))
+        return true;
+
+    return extra_rules.matches(relative_path);
+}
+
 std::int64_t get_modified_time(const fs::path &path) {
     auto time = fs::last_write_time(path);
 
@@ -99,6 +107,7 @@ std::optional<FileMeta> scan_file(const fs::path &root, const fs::path &relative
 
 std::vector<FileMeta> scan_vault(const fs::path &vault_path, const Manifest &known_hashes) {
     std::vector<FileMeta> files;
+    IgnoreRules extra_rules = load_ignore_rules(vault_path);
 
     for (const auto &entry : fs::recursive_directory_iterator(vault_path)) {
         if (entry.is_symlink() || !entry.is_regular_file()) {
@@ -106,12 +115,11 @@ std::vector<FileMeta> scan_vault(const fs::path &vault_path, const Manifest &kno
         }
 
         fs::path full_path = entry.path();
+        fs::path relative_path = fs::relative(full_path, vault_path);
 
-        if (should_ignore(full_path)) {
+        if (should_ignore(full_path, relative_path, extra_rules)) {
             continue;
         }
-
-        fs::path relative_path = fs::relative(full_path, vault_path);
 
         auto meta = scan_file(vault_path, relative_path, known_hashes);
 

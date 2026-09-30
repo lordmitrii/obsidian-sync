@@ -170,11 +170,37 @@ static void test_racy_mtime_ignores_cache() {
     fs::remove_all(root);
 }
 
+static void test_scan_vault_applies_obsidian_sync_ignore_file() {
+    fs::path root = fresh_dir("ignore-file");
+    write_file(root / "note.md", "content");
+    write_file(root / "draft.bak", "content");
+    fs::create_directories(root / "Archive");
+    write_file(root / "Archive" / "old.md", "content");
+    write_file(root / ".obsidian-sync-ignore", "*.bak\nArchive/\n");
+
+    auto has_path = [](const std::vector<FileMeta> &files, const std::string &path) {
+        for (const auto &file : files) {
+            if (file.path == path)
+                return true;
+        }
+        return false;
+    };
+
+    auto files = scan_vault(root);
+    expect(has_path(files, "note.md"), "ignore_file_keeps_unmatched_file");
+    expect(has_path(files, ".obsidian-sync-ignore"), "ignore_file_itself_is_synced");
+    expect(!has_path(files, "draft.bak"), "ignore_file_filters_wildcard_pattern");
+    expect(!has_path(files, "Archive/old.md"), "ignore_file_filters_directory_pattern");
+
+    fs::remove_all(root);
+}
+
 int main() {
     test_ignores_obsidian_noise();
     test_does_not_ignore_real_notes();
     test_does_not_match_substrings();
     test_skips_symlinks();
+    test_scan_vault_applies_obsidian_sync_ignore_file();
     test_reuses_cached_hash_when_size_and_mtime_match();
     test_rehashes_when_mtime_differs_from_cache();
     test_rehashes_when_size_differs_from_cache();
