@@ -32,6 +32,7 @@ add_library(obsidian-sync-core
     src/core/config.cpp
     src/core/db.cpp
     src/core/hasher.cpp
+    src/core/ignore_rules.cpp
     src/core/manifest.cpp
     src/core/manifest_action.cpp
     src/core/output.cpp
