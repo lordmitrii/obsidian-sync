@@ -126,3 +126,7 @@ add_test(NAME atomic-file-tests COMMAND atomic-file-tests)
 add_executable(rate-limiter-tests tests/unit/test_rate_limiter.cpp)
 target_link_libraries(rate-limiter-tests PRIVATE obsidian-sync-core)
 add_test(NAME rate-limiter-tests COMMAND rate-limiter-tests)
+
+add_executable(ignore-rules-tests tests/unit/test_ignore_rules.cpp)
+target_link_libraries(ignore-rules-tests PRIVATE obsidian-sync-core)
+add_test(NAME ignore-rules-tests COMMAND ignore-rules-tests)
