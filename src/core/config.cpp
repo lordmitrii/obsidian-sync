@@ -74,6 +74,8 @@ void print_usage() {
         "(default: 50)\n"
         "  --trash-retention-days <n>  Permanently remove .trash contents older than this many days "
         "(default: 30, 0 disables cleanup)\n"
+        "  --sync-config <preset>      How much of .obsidian to sync: none, core, or all "
+        "(default: all)\n"
         "  --server-root <path>        Directory to serve\n"
         "  --server-host <host>        Address to bind (default: 127.0.0.1)\n"
         "  --server-port <port>        Port to bind (default: 38471)\n"
@@ -230,6 +232,12 @@ Config parse_args(int argc, char *argv[]) {
 
             config.trash_retention_days = parse_int_strict(argv[i + 1], "--trash-retention-days");
             ++i;
+        } else if (arg == "--sync-config") {
+            if (i + 1 >= argc) {
+                throw std::runtime_error("--sync-config requires none, core, or all");
+            }
+
+            config.sync_config = parse_sync_config_preset(argv[++i]);
         } else {
             throw std::runtime_error("Unknown argument: " + arg);
         }

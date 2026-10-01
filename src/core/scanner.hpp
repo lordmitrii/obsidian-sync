@@ -21,4 +21,5 @@ std::optional<FileMeta> scan_file(const std::filesystem::path &root,
                                   const Manifest &known_hashes = {});
 
 std::vector<FileMeta> scan_vault(const std::filesystem::path &vault_path,
-                                 const Manifest &known_hashes = {});
+                                 const Manifest &known_hashes = {},
+                                 SyncConfigPreset sync_config = SyncConfigPreset::All);

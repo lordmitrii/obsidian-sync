@@ -105,9 +105,11 @@ std::optional<FileMeta> scan_file(const fs::path &root, const fs::path &relative
     return meta;
 }
 
-std::vector<FileMeta> scan_vault(const fs::path &vault_path, const Manifest &known_hashes) {
+std::vector<FileMeta> scan_vault(const fs::path &vault_path, const Manifest &known_hashes,
+                                 SyncConfigPreset sync_config) {
     std::vector<FileMeta> files;
     IgnoreRules extra_rules = load_ignore_rules(vault_path);
+    extra_rules.merge(ignore_rules_for_sync_config(sync_config));
 
     for (const auto &entry : fs::recursive_directory_iterator(vault_path)) {
         if (entry.is_symlink() || !entry.is_regular_file()) {

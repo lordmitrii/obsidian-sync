@@ -70,7 +70,8 @@ void run_http_server(const fs::path &server_root,
                      std::size_t max_upload_bytes,
                      int rate_limit_per_minute,
                      const std::string &trusted_proxy,
-                     int trash_retention_days) {
+                     int trash_retention_days,
+                     SyncConfigPreset sync_config) {
     httplib::Server server;
     RateLimiter authenticated_limiter(rate_limit_per_minute);
     RateLimiter unauthenticated_limiter(rate_limit_per_minute);
@@ -107,11 +108,11 @@ void run_http_server(const fs::path &server_root,
     Manifest manifest_cache;
     std::mutex manifest_cache_mutex;
 
-    server.Get("/manifest", [server_root, &manifest_cache,
-                             &manifest_cache_mutex](const httplib::Request &, httplib::Response &res) {
+    server.Get("/manifest", [server_root, &manifest_cache, &manifest_cache_mutex,
+                             sync_config](const httplib::Request &, httplib::Response &res) {
         std::lock_guard<std::mutex> lock(manifest_cache_mutex);
 
-        auto files = scan_vault(server_root, manifest_cache);
+        auto files = scan_vault(server_root, manifest_cache, sync_config);
 
         manifest_cache.clear();
         for (const auto &file : files) {

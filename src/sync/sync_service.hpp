@@ -1,5 +1,6 @@
 #pragma once
 
+#include "ignore_rules.hpp"
 #include "remote_backend.hpp"
 
 #include <cstddef>
@@ -21,7 +22,8 @@ class SyncService {
                 RemoteBackend &remote_backend,
                 bool apply,
                 DeleteSafetyLimits delete_limits = {},
-                int trash_retention_days = 30);
+                int trash_retention_days = 30,
+                SyncConfigPreset sync_config = SyncConfigPreset::All);
 
     RunStatus run_once();
 
@@ -32,4 +34,5 @@ class SyncService {
     bool apply_;
     DeleteSafetyLimits delete_limits_;
     int trash_retention_days_;
+    SyncConfigPreset sync_config_;
 };

@@ -39,7 +39,8 @@ int main(int argc, char *argv[]) {
                         DEFAULT_MAX_UPLOAD_BYTES,
                         DEFAULT_RATE_LIMIT_PER_MINUTE,
                         config.trusted_proxy,
-                        config.trash_retention_days);
+                        config.trash_retention_days,
+                        config.sync_config);
 
     } catch (const std::exception &e) {
         std::cerr << "Error: " << e.what() << "\n";

@@ -262,20 +262,22 @@ SyncService::SyncService(fs::path local_root,
                          RemoteBackend &remote_backend,
                          bool apply,
                          DeleteSafetyLimits delete_limits,
-                         int trash_retention_days)
+                         int trash_retention_days,
+                         SyncConfigPreset sync_config)
     : local_root_(std::move(local_root)),
       state_db_path_(std::move(state_db_path)),
       remote_backend_(remote_backend),
       apply_(apply),
       delete_limits_(delete_limits),
-      trash_retention_days_(trash_retention_days) {}
+      trash_retention_days_(trash_retention_days),
+      sync_config_(sync_config) {}
 
 RunStatus SyncService::run_once() {
     Database db(state_db_path_);
     db.initialize();
 
     auto base_manifest = db.load_as_manifest();
-    auto local_manifest = files_to_manifest(scan_vault(local_root_, base_manifest));
+    auto local_manifest = files_to_manifest(scan_vault(local_root_, base_manifest, sync_config_));
     auto remote_manifest = remote_backend_.load_manifest();
     auto actions = compare_three_way(base_manifest, local_manifest, remote_manifest);
 

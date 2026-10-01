@@ -121,6 +121,23 @@ static void test_trash_retention_days() {
            "trash_retention_days_rejects_non_numeric");
 }
 
+static void test_sync_config_preset() {
+    Config defaults = parse({"--local-root", "/tmp", "--remote-root", "/tmp"});
+    expect(defaults.sync_config == SyncConfigPreset::All, "sync_config_defaults_to_all");
+
+    Config none =
+        parse({"--local-root", "/tmp", "--remote-root", "/tmp", "--sync-config", "none"});
+    expect(none.sync_config == SyncConfigPreset::None, "sync_config_accepts_none");
+
+    Config core =
+        parse({"--local-root", "/tmp", "--remote-root", "/tmp", "--sync-config", "core"});
+    expect(core.sync_config == SyncConfigPreset::Core, "sync_config_accepts_core");
+
+    expect(throws_with({"--local-root", "/tmp", "--remote-root", "/tmp", "--sync-config", "bogus"},
+                       "--sync-config must be one of: none, core, all"),
+           "sync_config_rejects_unknown_preset");
+}
+
 int main() {
     test_rejects_trailing_garbage_in_port();
     test_rejects_trailing_garbage_in_interval();
@@ -129,6 +146,7 @@ int main() {
     test_insecure_http_and_cacert();
     test_delete_safety_limits();
     test_trash_retention_days();
+    test_sync_config_preset();
 
     if (failures == 0) {
         std::cout << "All config tests passed\n";

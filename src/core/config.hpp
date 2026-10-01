@@ -1,5 +1,7 @@
 #pragma once
 
+#include "ignore_rules.hpp"
+
 #include <cstddef>
 #include <filesystem>
 #include <string>
@@ -32,6 +34,7 @@ struct Config {
     size_t max_delete_count = 50;
     double max_delete_percent = 50.0;
     int trash_retention_days = 30;
+    SyncConfigPreset sync_config = SyncConfigPreset::All;
 };
 
 Config parse_args(int argc, char *argv[]);

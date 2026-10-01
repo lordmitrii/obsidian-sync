@@ -92,7 +92,8 @@ int main(int argc, char *argv[]) {
             DeleteSafetyLimits delete_limits{config.force_deletes, config.max_delete_count,
                                              config.max_delete_percent};
             SyncService sync_service(config.local_root, config.state_db_path, backend, config.apply,
-                                     delete_limits, config.trash_retention_days);
+                                     delete_limits, config.trash_retention_days,
+                                     config.sync_config);
 
             if (config.watch) {
                 run_watch_loop(config, sync_service);
@@ -117,7 +118,8 @@ int main(int argc, char *argv[]) {
             DeleteSafetyLimits delete_limits{config.force_deletes, config.max_delete_count,
                                              config.max_delete_percent};
             SyncService sync_service(config.local_root, config.state_db_path, backend, config.apply,
-                                     delete_limits, config.trash_retention_days);
+                                     delete_limits, config.trash_retention_days,
+                                     config.sync_config);
 
             if (config.watch) {
                 run_watch_loop(config, sync_service);
@@ -142,7 +144,7 @@ int main(int argc, char *argv[]) {
         Database db(config.state_db_path);
         db.initialize();
 
-        auto files = scan_vault(root_path, db.load_as_manifest());
+        auto files = scan_vault(root_path, db.load_as_manifest(), config.sync_config);
 
         if (!config.manifest_file_path.empty()) {
             write_json_manifest_to_file(files, config.manifest_file_path);
