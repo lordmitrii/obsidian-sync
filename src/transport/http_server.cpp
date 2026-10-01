@@ -80,6 +80,10 @@ void run_http_server(const fs::path &server_root,
     server.set_pre_routing_handler(
         [&bearer_token, &authenticated_limiter, &unauthenticated_limiter,
          &trusted_proxy](const httplib::Request &req, httplib::Response &res) {
+            if (req.path == "/healthz") {
+                return httplib::Server::HandlerResponse::Unhandled;
+            }
+
             std::string key = rate_limit_key(req, trusted_proxy);
             bool authorized = is_authorized(req, bearer_token);
             RateLimiter &limiter = authorized ? authenticated_limiter : unauthenticated_limiter;
@@ -98,6 +102,10 @@ void run_http_server(const fs::path &server_root,
 
             return httplib::Server::HandlerResponse::Unhandled;
         });
+
+    server.Get("/healthz", [](const httplib::Request &, httplib::Response &res) {
+        res.set_content("{\"status\":\"ok\"}\n", "application/json");
+    });
 
     // Reused across requests so GET /manifest can skip rehashing files whose
     // size and mtime haven't changed since the last request, the same cache
