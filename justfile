@@ -91,6 +91,9 @@ token:
 
 smoke:
     #!/usr/bin/env bash
+    HEALTH_CODE=$(curl -sf -o /dev/null -w '%{http_code}' https://{{domain}}/healthz)
+    echo "$HEALTH_CODE https://{{domain}}/healthz"
+    [ "$HEALTH_CODE" = "200" ] && echo "OK" || { echo "FAIL"; exit 1; }
     TOKEN=$(ssh {{host}} "sudo grep OBSIDIAN_SYNC_TOKEN /etc/obsidian-sync/env | cut -d= -f2")
     CODE=$(curl -sf -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $TOKEN" https://{{domain}}/manifest)
     echo "$CODE https://{{domain}}/manifest"
