@@ -1,6 +1,7 @@
 #include "ignore_rules.hpp"
 
 #include <fstream>
+#include <stdexcept>
 #include <string_view>
 
 namespace fs = std::filesystem;
@@ -37,6 +38,10 @@ std::string trim(const std::string &line) {
 }
 
 } // namespace
+
+void IgnoreRules::merge(const IgnoreRules &other) {
+    patterns_.insert(patterns_.end(), other.patterns_.begin(), other.patterns_.end());
+}
 
 void IgnoreRules::add_line(const std::string &raw_line) {
     std::string line = trim(raw_line);
@@ -125,6 +130,35 @@ IgnoreRules load_ignore_rules(const fs::path &vault_root) {
     std::string line;
     while (std::getline(in, line))
         rules.add_line(line);
+
+    return rules;
+}
+
+SyncConfigPreset parse_sync_config_preset(const std::string &text) {
+    if (text == "all")
+        return SyncConfigPreset::All;
+    if (text == "core")
+        return SyncConfigPreset::Core;
+    if (text == "none")
+        return SyncConfigPreset::None;
+
+    throw std::runtime_error("--sync-config must be one of: none, core, all");
+}
+
+IgnoreRules ignore_rules_for_sync_config(SyncConfigPreset preset) {
+    IgnoreRules rules;
+
+    if (preset == SyncConfigPreset::None) {
+        rules.add_line("/.obsidian/");
+        return rules;
+    }
+
+    if (preset == SyncConfigPreset::Core) {
+        rules.add_line("/.obsidian/plugins/");
+        rules.add_line("/.obsidian/themes/");
+        rules.add_line("/.obsidian/snippets/");
+        rules.add_line("/.obsidian/icons/");
+    }
 
     return rules;
 }

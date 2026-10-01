@@ -2,6 +2,7 @@
 
 #include <fstream>
 #include <iostream>
+#include <stdexcept>
 
 namespace fs = std::filesystem;
 
@@ -99,6 +100,56 @@ static void test_load_ignore_rules_missing_file_is_empty() {
     fs::remove_all(root);
 }
 
+static void test_parse_sync_config_preset() {
+    expect(parse_sync_config_preset("all") == SyncConfigPreset::All, "parses_all");
+    expect(parse_sync_config_preset("core") == SyncConfigPreset::Core, "parses_core");
+    expect(parse_sync_config_preset("none") == SyncConfigPreset::None, "parses_none");
+
+    bool threw = false;
+    try {
+        parse_sync_config_preset("bogus");
+    } catch (const std::exception &) {
+        threw = true;
+    }
+    expect(threw, "rejects_unknown_preset");
+}
+
+static void test_sync_config_preset_all_ignores_nothing_extra() {
+    auto rules = ignore_rules_for_sync_config(SyncConfigPreset::All);
+    expect(rules.empty(), "all_preset_adds_no_rules");
+}
+
+static void test_sync_config_preset_none_ignores_whole_obsidian_dir() {
+    auto rules = ignore_rules_for_sync_config(SyncConfigPreset::None);
+
+    expect(rules.matches(".obsidian/app.json"), "none_preset_ignores_top_level_config");
+    expect(rules.matches(".obsidian/plugins/some-plugin/data.json"), "none_preset_ignores_nested");
+    expect(!rules.matches("note.md"), "none_preset_does_not_ignore_notes");
+}
+
+static void test_sync_config_preset_core_keeps_settings_drops_payloads() {
+    auto rules = ignore_rules_for_sync_config(SyncConfigPreset::Core);
+
+    expect(!rules.matches(".obsidian/app.json"), "core_preset_keeps_app_json");
+    expect(!rules.matches(".obsidian/hotkeys.json"), "core_preset_keeps_hotkeys");
+    expect(rules.matches(".obsidian/plugins/some-plugin/data.json"), "core_preset_drops_plugins");
+    expect(rules.matches(".obsidian/themes/theme.css"), "core_preset_drops_themes");
+    expect(rules.matches(".obsidian/snippets/snippet.css"), "core_preset_drops_snippets");
+    expect(rules.matches(".obsidian/icons/pack/icon.svg"), "core_preset_drops_icons");
+}
+
+static void test_merge_combines_two_rule_sets() {
+    IgnoreRules a;
+    a.add_line("*.bak");
+    IgnoreRules b;
+    b.add_line("Archive/");
+
+    a.merge(b);
+
+    expect(a.matches("note.md.bak"), "merge_keeps_original_rules");
+    expect(a.matches("Archive/old.md"), "merge_adds_other_rules");
+}
+
 int main() {
     test_wildcard_matches_at_any_depth();
     test_anchored_pattern_only_matches_from_root();
@@ -109,6 +160,11 @@ int main() {
     test_empty_rules_match_nothing();
     test_load_ignore_rules_reads_vault_root_file();
     test_load_ignore_rules_missing_file_is_empty();
+    test_parse_sync_config_preset();
+    test_sync_config_preset_all_ignores_nothing_extra();
+    test_sync_config_preset_none_ignores_whole_obsidian_dir();
+    test_sync_config_preset_core_keeps_settings_drops_payloads();
+    test_merge_combines_two_rule_sets();
 
     if (failures == 0) {
         std::cout << "All ignore rules tests passed\n";
