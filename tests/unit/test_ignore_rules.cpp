@@ -31,6 +31,17 @@ static void test_anchored_pattern_only_matches_from_root() {
     expect(!rules.matches("sub/Attachments/large.bin"), "anchored_does_not_match_nested");
 }
 
+static void test_anchored_directory_pattern_matches_at_any_depth() {
+    IgnoreRules rules;
+    rules.add_line("/.obsidian/plugins/");
+
+    expect(rules.matches(".obsidian/plugins/foo.json"), "anchored_dir_matches_direct_child");
+    expect(rules.matches(".obsidian/plugins/some-plugin/data.json"),
+          "anchored_dir_matches_nested_child");
+    expect(!rules.matches(".obsidian/themes/foo.css"), "anchored_dir_does_not_match_sibling");
+    expect(!rules.matches("plugins/foo.json"), "anchored_dir_does_not_match_unrooted_name");
+}
+
 static void test_directory_only_pattern_matches_ancestors_not_files() {
     IgnoreRules rules;
     rules.add_line("Excalidraw/");
@@ -91,6 +102,7 @@ static void test_load_ignore_rules_missing_file_is_empty() {
 int main() {
     test_wildcard_matches_at_any_depth();
     test_anchored_pattern_only_matches_from_root();
+    test_anchored_directory_pattern_matches_at_any_depth();
     test_directory_only_pattern_matches_ancestors_not_files();
     test_comments_and_blank_lines_are_skipped();
     test_negation_lines_are_ignored();

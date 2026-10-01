@@ -82,6 +82,18 @@ bool IgnoreRules::matches(const fs::path &relative_path) const {
         size_t last_component = pattern.directory_only ? components.size() - 1 : components.size();
 
         if (pattern.anchored) {
+            if (pattern.directory_only) {
+                std::string joined;
+                for (size_t i = 0; i < last_component; ++i) {
+                    if (i > 0)
+                        joined += '/';
+                    joined += components[i];
+                    if (glob_match(pattern.glob, joined))
+                        return true;
+                }
+                continue;
+            }
+
             std::string joined;
             for (size_t i = 0; i < last_component; ++i) {
                 if (i > 0)
