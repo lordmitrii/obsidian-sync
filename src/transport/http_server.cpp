@@ -1,11 +1,15 @@
 #include "http_server.hpp"
 
+#include "access_log.hpp"
 #include "atomic_file.hpp"
 #include "output.hpp"
 #include "rate_limiter.hpp"
 #include "scanner.hpp"
 #include "security.hpp"
 
+#include <atomic>
+#include <chrono>
+#include <ctime>
 #include <filesystem>
 #include <fstream>
 #include <httplib.h>
@@ -63,6 +67,53 @@ static std::string rate_limit_key(const httplib::Request &req, const std::string
     return req.remote_addr;
 }
 
+static const char *kRequestIdHeader = "X-Osync-Request-Id";
+static const char *kRequestStartHeader = "X-Osync-Request-Start-Ns";
+
+static std::string current_timestamp_iso8601() {
+    auto now = std::chrono::system_clock::now();
+    std::time_t now_time = std::chrono::system_clock::to_time_t(now);
+    std::tm utc_tm{};
+#if defined(_WIN32)
+    gmtime_s(&utc_tm, &now_time);
+#else
+    gmtime_r(&now_time, &utc_tm);
+#endif
+    char buffer[32];
+    std::strftime(buffer, sizeof(buffer), "%Y-%m-%dT%H:%M:%SZ", &utc_tm);
+    return buffer;
+}
+
+static void stamp_request_metadata(const httplib::Request &req, std::atomic<std::uint64_t> &next_request_id) {
+    auto &mutable_req = const_cast<httplib::Request &>(req);
+    std::uint64_t id = next_request_id.fetch_add(1);
+    auto start_ns = std::chrono::steady_clock::now().time_since_epoch().count();
+    mutable_req.set_header(kRequestIdHeader, std::to_string(id));
+    mutable_req.set_header(kRequestStartHeader, std::to_string(start_ns));
+}
+
+static void log_access(const httplib::Request &req, const httplib::Response &res) {
+    AccessLogEntry entry;
+    entry.timestamp = current_timestamp_iso8601();
+    entry.method = req.method;
+    entry.path = req.path;
+    entry.status = res.status;
+    entry.response_bytes = res.body.size();
+    entry.remote_addr = req.remote_addr;
+
+    if (req.has_header(kRequestIdHeader)) {
+        entry.request_id = std::stoull(req.get_header_value(kRequestIdHeader));
+    }
+
+    if (req.has_header(kRequestStartHeader)) {
+        auto start_ns = std::stoll(req.get_header_value(kRequestStartHeader));
+        auto now_ns = std::chrono::steady_clock::now().time_since_epoch().count();
+        entry.duration_ms = static_cast<double>(now_ns - start_ns) / 1'000'000.0;
+    }
+
+    std::cout << format_access_log_entry(entry) << std::endl;
+}
+
 void run_http_server(const fs::path &server_root,
                      const std::string &host,
                      int port,
@@ -75,11 +126,15 @@ void run_http_server(const fs::path &server_root,
     httplib::Server server;
     RateLimiter authenticated_limiter(rate_limit_per_minute);
     RateLimiter unauthenticated_limiter(rate_limit_per_minute);
+    std::atomic<std::uint64_t> next_request_id{1};
 
     server.set_payload_max_length(max_upload_bytes);
+    server.set_logger(log_access);
     server.set_pre_routing_handler(
         [&bearer_token, &authenticated_limiter, &unauthenticated_limiter,
-         &trusted_proxy](const httplib::Request &req, httplib::Response &res) {
+         &trusted_proxy, &next_request_id](const httplib::Request &req, httplib::Response &res) {
+            stamp_request_metadata(req, next_request_id);
+
             if (req.path == "/healthz") {
                 return httplib::Server::HandlerResponse::Unhandled;
             }
