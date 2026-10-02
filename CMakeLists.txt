@@ -131,3 +131,7 @@ add_test(NAME rate-limiter-tests COMMAND rate-limiter-tests)
 add_executable(ignore-rules-tests tests/unit/test_ignore_rules.cpp)
 target_link_libraries(ignore-rules-tests PRIVATE obsidian-sync-core)
 add_test(NAME ignore-rules-tests COMMAND ignore-rules-tests)
+
+add_executable(access-log-tests tests/unit/test_access_log.cpp)
+target_link_libraries(access-log-tests PRIVATE obsidian-sync-core)
+add_test(NAME access-log-tests COMMAND access-log-tests)
