@@ -1,0 +1,6 @@
+[Unit]
+Description=Obsidian Sync healthz watchdog
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/obsidian-sync-healthcheck.sh

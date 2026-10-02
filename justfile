@@ -62,8 +62,13 @@ _setup-nginx-https:
 
 _setup-systemd:
     scp deploy/obsidian-sync-server.service {{host}}:/tmp/
+    scp deploy/obsidian-sync-healthcheck.service deploy/obsidian-sync-healthcheck.timer {{host}}:/tmp/
+    scp deploy/healthcheck.sh {{host}}:/tmp/obsidian-sync-healthcheck.sh
     ssh {{host}} " \
         sudo cp /tmp/obsidian-sync-server.service /etc/systemd/system/obsidian-sync-server.service; \
+        sudo cp /tmp/obsidian-sync-healthcheck.service /etc/systemd/system/obsidian-sync-healthcheck.service; \
+        sudo cp /tmp/obsidian-sync-healthcheck.timer /etc/systemd/system/obsidian-sync-healthcheck.timer; \
+        sudo install -m 0755 /tmp/obsidian-sync-healthcheck.sh /usr/local/bin/obsidian-sync-healthcheck.sh; \
         if ! sudo test -f /etc/obsidian-sync/env; then \
             sudo sh -c 'echo OBSIDIAN_SYNC_TOKEN=\$\$(openssl rand -hex 32) > /etc/obsidian-sync/env'; \
             sudo chmod 640 /etc/obsidian-sync/env; \
@@ -71,6 +76,7 @@ _setup-systemd:
         fi; \
         sudo systemctl daemon-reload; \
         sudo systemctl enable obsidian-sync-server; \
+        sudo systemctl enable --now obsidian-sync-healthcheck.timer; \
     "
 
 install-client:
