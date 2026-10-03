@@ -38,6 +38,28 @@ static fs::path numbered_conflict_path(const fs::path &first_choice, int n) {
             first_choice.extension().string());
 }
 
+struct ConflictCopySlot {
+    fs::path path;
+    bool up_to_date;
+};
+
+static ConflictCopySlot pick_conflict_copy_slot(const fs::path &local_path,
+                                                const std::string *remote_hash) {
+    fs::path first_choice = remote_conflict_path(local_path);
+
+    for (int n = 1;; ++n) {
+        fs::path candidate = n == 1 ? first_choice : numbered_conflict_path(first_choice, n);
+
+        if (!fs::exists(candidate)) {
+            return {candidate, false};
+        }
+
+        if (remote_hash != nullptr && sha256_file(candidate) == *remote_hash) {
+            return {candidate, true};
+        }
+    }
+}
+
 static void print_manifest_actions(const std::vector<ManifestAction> &actions) {
     for (const auto &action : actions) {
         std::cout << manifest_action_to_string(action.type) << " " << action.path << "\n";
@@ -203,28 +225,22 @@ static void apply_action(const ManifestAction &action,
     case ManifestActionType::Conflict: {
         std::cout << "Conflict: " << action.path << "\n";
 
-        fs::path conflict_path = remote_conflict_path(local_path);
+        // Conflict copies from earlier runs are expected in --watch mode: base
+        // state doesn't move forward on conflict, so the same conflict is
+        // replanned every interval. Reuse any copy that already matches the
+        // current remote hash, and otherwise take the first free name so an
+        // older copy is never clobbered.
         auto remote_it = remote_manifest.find(action.path);
+        const std::string *remote_hash =
+            remote_it != remote_manifest.end() ? &remote_it->second.hash : nullptr;
+        ConflictCopySlot slot = pick_conflict_copy_slot(local_path, remote_hash);
 
-        // A conflict copy from an earlier run already sitting at
-        // conflict_path is expected in --watch mode: base state doesn't
-        // move forward on conflict, so the same conflict is replanned every
-        // interval. Skip re-downloading it when it still matches the
-        // current remote hash, and give it a fresh numbered name instead of
-        // clobbering it when the remote has since changed again.
-        if (fs::exists(conflict_path)) {
-            if (remote_it != remote_manifest.end() &&
-                sha256_file(conflict_path) == remote_it->second.hash) {
-                std::cout << "Conflict copy already up to date, skipping\n";
-                break;
-            }
-
-            for (int n = 2; fs::exists(conflict_path); ++n) {
-                conflict_path = numbered_conflict_path(remote_conflict_path(local_path), n);
-            }
+        if (slot.up_to_date) {
+            std::cout << "Conflict copy already up to date, skipping\n";
+            break;
         }
 
-        remote_backend.save_conflict_copy(action.path, conflict_path);
+        remote_backend.save_conflict_copy(action.path, slot.path);
         break;
     }
 

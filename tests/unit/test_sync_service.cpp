@@ -261,6 +261,27 @@ static void test_conflict_gets_a_numbered_copy_when_remote_changes_again() {
            "second_conflict_copy_gets_a_number");
 }
 
+static void test_repeated_conflict_reuses_matching_numbered_copy() {
+    Fixture f("repeated-numbered-conflict");
+    write_file(f.local / "a.md", "base");
+    f.sync();
+
+    write_file(f.local / "a.md", "local edit");
+    write_file(f.remote / "a.md", "remote edit!");
+    f.sync();
+
+    write_file(f.remote / "a.md", "remote edit 2!");
+    f.sync();
+    f.sync();
+    RunStatus status = f.sync();
+
+    expect(status == RunStatus::ConflictsPending, "repeated_numbered_conflict_reports_pending");
+    expect(read_file(f.local / "a.conflict-remote.2.md") == "remote edit 2!",
+           "numbered_conflict_copy_still_matches_remote");
+    expect(!fs::exists(f.local / "a.conflict-remote.3.md"),
+           "repeated_conflict_does_not_pile_up_copies");
+}
+
 static void test_one_failed_action_does_not_block_the_others() {
     Fixture f("partial-failure");
     write_file(f.local / "good.md", "v1");
@@ -440,6 +461,7 @@ int main() {
     test_conflict_keeps_local_and_saves_remote_copy();
     test_repeated_conflict_does_not_fail_forever();
     test_conflict_gets_a_numbered_copy_when_remote_changes_again();
+    test_repeated_conflict_reuses_matching_numbered_copy();
     test_one_failed_action_does_not_block_the_others();
     test_mass_delete_is_blocked_by_default();
     test_mass_delete_proceeds_with_force_deletes();
