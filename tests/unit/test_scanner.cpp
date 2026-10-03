@@ -26,12 +26,16 @@ static void test_ignores_obsidian_noise() {
     expect(should_ignore("vault/note.md.swp"), "swp_extension");
     expect(should_ignore("vault/note.md.crswap"), "crswap_extension");
     expect(should_ignore("vault/note.conflict-remote.md"), "conflict_remote_marker");
+    expect(should_ignore("vault/note.conflict-remote.2.md"), "numbered_conflict_remote_marker");
+    expect(should_ignore("vault/LICENSE.conflict-remote"), "extensionless_conflict_remote_marker");
 }
 
 static void test_does_not_ignore_real_notes() {
     expect(!should_ignore("vault/note.md"), "plain_note");
     expect(!should_ignore("vault/.obsidian/plugins/some-plugin/data.json"), "obsidian_plugin_data");
     expect(!should_ignore("vault/folder/subfolder/note.md"), "nested_note");
+    expect(!should_ignore("vault/conflict-remote-review.md"), "conflict_remote_word_in_name");
+    expect(!should_ignore("vault/plan.conflict-remote-notes.md"), "conflict_remote_prefix_in_name");
 }
 
 static void test_does_not_match_substrings() {

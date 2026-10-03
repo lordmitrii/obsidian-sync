@@ -49,7 +49,9 @@ bool should_ignore(const fs::path &path) {
         }
     }
 
-    if (path.filename().string().find(".conflict-remote") != std::string::npos)
+    const std::string filename = path.filename().string();
+    if (filename.find(".conflict-remote.") != std::string::npos ||
+        filename.ends_with(".conflict-remote"))
         return true;
 
     if (path.extension() == ".tmp")
