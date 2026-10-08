@@ -125,6 +125,11 @@ test_auth_and_limits() {
     [[ "$(curl --max-time 5 -s "$BASE_URL/healthz")" == '{"status":"ok"}' ]] ||
         fail "unexpected /healthz body"
 
+    expect_http_code 401 "$BASE_URL/metrics"
+    expect_http_code 200 -H "Authorization: Bearer $TOKEN" "$BASE_URL/metrics"
+    curl --max-time 5 -s -H "Authorization: Bearer $TOKEN" "$BASE_URL/metrics" |
+        grep -q '^obsidian_sync_requests_total ' || fail "unexpected /metrics body"
+
     dd if=/dev/zero of="$TMP_ROOT/too-large.bin" bs=1M count=26 status=none
     expect_http_code 413 -X PUT -H "Authorization: Bearer $TOKEN" \
         --data-binary "@$TMP_ROOT/too-large.bin" "$BASE_URL/file?path=too-large.bin"

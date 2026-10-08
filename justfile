@@ -104,3 +104,6 @@ smoke:
     CODE=$(curl -sf -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $TOKEN" https://{{domain}}/manifest)
     echo "$CODE https://{{domain}}/manifest"
     [ "$CODE" = "200" ] && echo "OK" || { echo "FAIL"; exit 1; }
+    CODE=$(curl -sf -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $TOKEN" https://{{domain}}/metrics)
+    echo "$CODE https://{{domain}}/metrics"
+    [ "$CODE" = "200" ] && echo "OK" || { echo "FAIL"; exit 1; }
