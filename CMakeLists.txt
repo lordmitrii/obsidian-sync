@@ -136,3 +136,7 @@ add_test(NAME ignore-rules-tests COMMAND ignore-rules-tests)
 add_executable(access-log-tests tests/unit/test_access_log.cpp)
 target_link_libraries(access-log-tests PRIVATE obsidian-sync-core)
 add_test(NAME access-log-tests COMMAND access-log-tests)
+
+add_executable(metrics-tests tests/unit/test_metrics.cpp)
+target_link_libraries(metrics-tests PRIVATE obsidian-sync-core)
+add_test(NAME metrics-tests COMMAND metrics-tests)
