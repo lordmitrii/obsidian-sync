@@ -138,6 +138,14 @@ static void test_sync_config_preset() {
            "sync_config_rejects_unknown_preset");
 }
 
+static void test_quiet() {
+    Config defaults = parse({"--vault", "/tmp"});
+    expect(!defaults.quiet, "quiet_defaults_to_false");
+
+    Config quiet = parse({"--vault", "/tmp", "--quiet"});
+    expect(quiet.quiet, "quiet_accepts_flag");
+}
+
 int main() {
     test_rejects_trailing_garbage_in_port();
     test_rejects_trailing_garbage_in_interval();
@@ -147,6 +155,7 @@ int main() {
     test_delete_safety_limits();
     test_trash_retention_days();
     test_sync_config_preset();
+    test_quiet();
 
     if (failures == 0) {
         std::cout << "All config tests passed\n";

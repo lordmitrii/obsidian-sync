@@ -41,8 +41,11 @@ static void run_watch_loop(const Config &config, SyncService &sync_service) {
             std::cerr << "Sync run failed, will retry next interval: " << e.what() << "\n";
         }
 
-        std::cout << "Sleeping for " << config.watch_interval_seconds << " seconds\n";
-        std::cout.flush();
+        if (!config.quiet) {
+            std::cout << "Sleeping for " << config.watch_interval_seconds << " seconds\n";
+            std::cout.flush();
+        }
+
         std::this_thread::sleep_for(std::chrono::seconds(config.watch_interval_seconds));
     }
 }
@@ -148,7 +151,11 @@ int main(int argc, char *argv[]) {
 
         if (!config.manifest_file_path.empty()) {
             write_json_manifest_to_file(files, config.manifest_file_path);
-            std::cout << "Wrote manifest to " << config.manifest_file_path << "\n";
+
+            if (!config.quiet) {
+                std::cout << "Wrote manifest to " << config.manifest_file_path << "\n";
+            }
+
             return 0;
         }
 
@@ -175,7 +182,7 @@ int main(int argc, char *argv[]) {
                     db.delete_file(action.path);
                 }
             }
-        } else {
+        } else if (!config.quiet) {
             std::cout << "Dry run: database was not updated\n";
         }
 
