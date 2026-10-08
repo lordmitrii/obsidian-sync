@@ -46,6 +46,7 @@ add_library(obsidian-sync-core
     src/sync/two_way_compare.cpp
     src/transport/access_log.cpp
     src/transport/http_server.cpp
+    src/transport/metrics.cpp
     src/transport/rate_limiter.cpp
 )
 

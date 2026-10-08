@@ -2,6 +2,7 @@
 
 #include "access_log.hpp"
 #include "atomic_file.hpp"
+#include "metrics.hpp"
 #include "output.hpp"
 #include "rate_limiter.hpp"
 #include "scanner.hpp"
@@ -92,7 +93,9 @@ static void stamp_request_metadata(const httplib::Request &req, std::atomic<std:
     mutable_req.set_header(kRequestStartHeader, std::to_string(start_ns));
 }
 
-static void log_access(const httplib::Request &req, const httplib::Response &res) {
+static void log_access(const httplib::Request &req, const httplib::Response &res, ServerMetrics &metrics) {
+    metrics.record_request(res.status, res.body.size());
+
     AccessLogEntry entry;
     entry.timestamp = current_timestamp_iso8601();
     entry.method = req.method;
@@ -127,9 +130,12 @@ void run_http_server(const fs::path &server_root,
     RateLimiter authenticated_limiter(rate_limit_per_minute);
     RateLimiter unauthenticated_limiter(rate_limit_per_minute);
     std::atomic<std::uint64_t> next_request_id{1};
+    ServerMetrics metrics;
 
     server.set_payload_max_length(max_upload_bytes);
-    server.set_logger(log_access);
+    server.set_logger([&metrics](const httplib::Request &req, const httplib::Response &res) {
+        log_access(req, res, metrics);
+    });
     server.set_pre_routing_handler(
         [&bearer_token, &authenticated_limiter, &unauthenticated_limiter,
          &trusted_proxy, &next_request_id](const httplib::Request &req, httplib::Response &res) {
@@ -160,6 +166,10 @@ void run_http_server(const fs::path &server_root,
 
     server.Get("/healthz", [](const httplib::Request &, httplib::Response &res) {
         res.set_content("{\"status\":\"ok\"}\n", "application/json");
+    });
+
+    server.Get("/metrics", [&metrics](const httplib::Request &, httplib::Response &res) {
+        res.set_content(format_metrics_prometheus(metrics.snapshot()), "text/plain; version=0.0.4");
     });
 
     // Reused across requests so GET /manifest can skip rehashing files whose
