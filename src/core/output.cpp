@@ -52,3 +52,21 @@ void write_json_manifest_to_file(const std::vector<FileMeta> &files,
 
     out << manifest_to_json(files).dump(2) << "\n";
 }
+
+json vault_status_to_json(const VaultStatus &status) {
+    return json{{"tracked_files", status.tracked_files},
+               {"tracked_bytes", status.tracked_bytes},
+               {"unresolved_conflicts", status.unresolved_conflicts},
+               {"trashed_files", status.trashed_files}};
+}
+
+void print_json_vault_status(const VaultStatus &status) {
+    std::cout << vault_status_to_json(status).dump(2) << "\n";
+}
+
+void print_text_vault_status(const VaultStatus &status) {
+    std::cout << "Tracked files: " << status.tracked_files << "\n";
+    std::cout << "Tracked bytes: " << status.tracked_bytes << "\n";
+    std::cout << "Unresolved conflicts: " << status.unresolved_conflicts << "\n";
+    std::cout << "Trashed files: " << status.trashed_files << "\n";
+}

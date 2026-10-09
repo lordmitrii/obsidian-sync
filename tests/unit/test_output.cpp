@@ -31,6 +31,21 @@ static void test_manifest_to_json_keeps_order() {
            "entries_keep_input_order");
 }
 
+static void test_vault_status_to_json() {
+    VaultStatus status;
+    status.tracked_files = 3;
+    status.tracked_bytes = 42;
+    status.unresolved_conflicts = 1;
+    status.trashed_files = 2;
+
+    const auto root = vault_status_to_json(status);
+
+    expect(root["tracked_files"] == 3, "tracked_files_field");
+    expect(root["tracked_bytes"] == 42, "tracked_bytes_field");
+    expect(root["unresolved_conflicts"] == 1, "unresolved_conflicts_field");
+    expect(root["trashed_files"] == 2, "trashed_files_field");
+}
+
 static void test_action_names() {
     expect(manifest_action_to_string(ManifestActionType::Upload) == "upload", "upload_name");
     expect(manifest_action_to_string(ManifestActionType::Download) == "download", "download_name");
@@ -46,6 +61,7 @@ static void test_action_names() {
 int main() {
     test_manifest_to_json();
     test_manifest_to_json_keeps_order();
+    test_vault_status_to_json();
     test_action_names();
 
     if (failures == 0) {
