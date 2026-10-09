@@ -46,6 +46,7 @@ void print_usage() {
         "  obsidian-sync-client --vault <path> [--dry-run] [--json]\n"
         "  obsidian-sync-client --vault <path> --manifest | --manifest-file <path>\n"
         "  obsidian-sync-client --vault <path> --status [--json]\n"
+        "  obsidian-sync-client --vault <path> --conflicts [--json]\n"
         "  obsidian-sync-client --compare-manifests <a> <b>\n"
         "  obsidian-sync-client --local-root <path> (--remote-root <path> | --remote-url <url>)\n"
         "                        [--state <path>] [--apply] [--watch --interval <seconds>]\n"
@@ -62,6 +63,7 @@ void print_usage() {
         "  --manifest                  Print a manifest of the vault instead of a sync plan\n"
         "  --manifest-file <path>      Write a manifest of the vault to a file\n"
         "  --status                    Print tracked file, conflict and trash counts for the vault\n"
+        "  --conflicts                 List notes with an unresolved conflict copy\n"
         "  --compare-manifests <a> <b> Diff two saved manifests\n"
         "  --local-root <path>         Local vault to sync\n"
         "  --remote-root <path>        Remote directory to sync against (for testing)\n"
@@ -117,6 +119,8 @@ Config parse_args(int argc, char *argv[]) {
             config.manifest_output = true;
         } else if (arg == "--status") {
             config.status_output = true;
+        } else if (arg == "--conflicts") {
+            config.conflicts_output = true;
         } else if (arg == "--manifest-file") {
             if (i + 1 >= argc) {
                 throw std::runtime_error("--manifest-file requires a path");

@@ -70,3 +70,22 @@ void print_text_vault_status(const VaultStatus &status) {
     std::cout << "Unresolved conflicts: " << status.unresolved_conflicts << "\n";
     std::cout << "Trashed files: " << status.trashed_files << "\n";
 }
+
+json conflicted_notes_to_json(const std::vector<std::string> &notes) {
+    return json{{"conflicts", notes}};
+}
+
+void print_json_conflicted_notes(const std::vector<std::string> &notes) {
+    std::cout << conflicted_notes_to_json(notes).dump(2) << "\n";
+}
+
+void print_text_conflicted_notes(const std::vector<std::string> &notes) {
+    if (notes.empty()) {
+        std::cout << "No unresolved conflicts\n";
+        return;
+    }
+
+    for (const auto &note : notes) {
+        std::cout << note << "\n";
+    }
+}

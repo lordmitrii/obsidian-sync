@@ -98,6 +98,23 @@ int main(int argc, char *argv[]) {
             return 0;
         }
 
+        if (config.conflicts_output) {
+            if (!fs::exists(config.vault_path) || !fs::is_directory(config.vault_path)) {
+                std::cerr << "Path does not exist or is not a directory\n";
+                return 1;
+            }
+
+            auto notes = list_conflicted_notes(config.vault_path);
+
+            if (config.json_output) {
+                print_json_conflicted_notes(notes);
+            } else {
+                print_text_conflicted_notes(notes);
+            }
+
+            return 0;
+        }
+
         if (!config.local_root.empty() && !config.remote_url.empty()) {
             if (!fs::exists(config.local_root) || !fs::is_directory(config.local_root)) {
                 std::cerr << "Local root does not exist or is not a directory\n";

@@ -154,6 +154,14 @@ static void test_status() {
     expect(status.status_output, "status_accepts_flag");
 }
 
+static void test_conflicts() {
+    Config defaults = parse({"--vault", "/tmp"});
+    expect(!defaults.conflicts_output, "conflicts_defaults_to_false");
+
+    Config conflicts = parse({"--vault", "/tmp", "--conflicts"});
+    expect(conflicts.conflicts_output, "conflicts_accepts_flag");
+}
+
 int main() {
     test_rejects_trailing_garbage_in_port();
     test_rejects_trailing_garbage_in_interval();
@@ -165,6 +173,7 @@ int main() {
     test_sync_config_preset();
     test_quiet();
     test_status();
+    test_conflicts();
 
     if (failures == 0) {
         std::cout << "All config tests passed\n";

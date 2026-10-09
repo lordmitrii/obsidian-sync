@@ -46,6 +46,16 @@ static void test_vault_status_to_json() {
     expect(root["trashed_files"] == 2, "trashed_files_field");
 }
 
+static void test_conflicted_notes_to_json() {
+    const auto empty = conflicted_notes_to_json({});
+    expect(empty["conflicts"].is_array() && empty["conflicts"].empty(), "empty_conflicts_array");
+
+    const auto root = conflicted_notes_to_json({"note.md", "folder/other.md"});
+    expect(root["conflicts"].size() == 2, "two_conflicts");
+    expect(root["conflicts"][0] == "note.md", "first_conflict_path");
+    expect(root["conflicts"][1] == "folder/other.md", "second_conflict_path");
+}
+
 static void test_action_names() {
     expect(manifest_action_to_string(ManifestActionType::Upload) == "upload", "upload_name");
     expect(manifest_action_to_string(ManifestActionType::Download) == "download", "download_name");
@@ -62,6 +72,7 @@ int main() {
     test_manifest_to_json();
     test_manifest_to_json_keeps_order();
     test_vault_status_to_json();
+    test_conflicted_notes_to_json();
     test_action_names();
 
     if (failures == 0) {

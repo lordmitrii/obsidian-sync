@@ -17,3 +17,7 @@ void write_json_manifest_to_file(const std::vector<FileMeta> &files,
 nlohmann::json vault_status_to_json(const VaultStatus &status);
 void print_json_vault_status(const VaultStatus &status);
 void print_text_vault_status(const VaultStatus &status);
+
+nlohmann::json conflicted_notes_to_json(const std::vector<std::string> &notes);
+void print_json_conflicted_notes(const std::vector<std::string> &notes);
+void print_text_conflicted_notes(const std::vector<std::string> &notes);
