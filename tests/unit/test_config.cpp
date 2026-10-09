@@ -146,6 +146,14 @@ static void test_quiet() {
     expect(quiet.quiet, "quiet_accepts_flag");
 }
 
+static void test_status() {
+    Config defaults = parse({"--vault", "/tmp"});
+    expect(!defaults.status_output, "status_defaults_to_false");
+
+    Config status = parse({"--vault", "/tmp", "--status"});
+    expect(status.status_output, "status_accepts_flag");
+}
+
 int main() {
     test_rejects_trailing_garbage_in_port();
     test_rejects_trailing_garbage_in_interval();
@@ -156,6 +164,7 @@ int main() {
     test_trash_retention_days();
     test_sync_config_preset();
     test_quiet();
+    test_status();
 
     if (failures == 0) {
         std::cout << "All config tests passed\n";

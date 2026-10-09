@@ -10,6 +10,7 @@
 #include "sync_plan.hpp"
 #include "sync_service.hpp"
 #include "two_way_compare.hpp"
+#include "vault_status.hpp"
 
 #include <chrono>
 #include <filesystem>
@@ -72,6 +73,26 @@ int main(int argc, char *argv[]) {
 
             for (const auto &action : actions) {
                 std::cout << manifest_action_to_string(action.type) << " " << action.path << "\n";
+            }
+
+            return 0;
+        }
+
+        if (config.status_output) {
+            if (!fs::exists(config.vault_path) || !fs::is_directory(config.vault_path)) {
+                std::cerr << "Path does not exist or is not a directory\n";
+                return 1;
+            }
+
+            Database db(config.state_db_path);
+            db.initialize();
+
+            VaultStatus status = compute_vault_status(db.load_as_manifest(), config.vault_path);
+
+            if (config.json_output) {
+                print_json_vault_status(status);
+            } else {
+                print_text_vault_status(status);
             }
 
             return 0;

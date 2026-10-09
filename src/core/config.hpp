@@ -15,6 +15,7 @@ struct Config {
     bool json_output = false;
     bool manifest_output = false;
     std::string manifest_file_path;
+    bool status_output = false;
     std::filesystem::path server_root;
     std::string server_host = "127.0.0.1";
     int server_port = 38471;
