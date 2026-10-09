@@ -55,6 +55,29 @@ static void test_counts_conflicts_and_trash() {
     expect(status.trashed_files == 1, "counts_trashed_file");
 }
 
+static void test_lists_conflicted_notes_deduplicated() {
+    const auto root = fresh_dir("list-conflicts");
+    write_file(root / "note.md", "content");
+    write_file(root / "note.conflict-remote.md", "remote copy");
+    write_file(root / "note.conflict-remote.2.md", "second remote copy");
+    write_file(root / "folder" / "other.conflict-remote", "extensionless");
+    write_file(root / "folder" / "other.2.conflict-remote", "second extensionless copy");
+    write_file(root / ".trash" / "trashed.conflict-remote.md", "ignored");
+
+    const auto notes = list_conflicted_notes(root);
+
+    expect(notes.size() == 2, "dedupes_numbered_copies");
+    expect(notes[0] == "folder/other", "lists_nested_note_without_extension");
+    expect(notes[1] == "note.md", "lists_note_with_extension");
+}
+
+static void test_list_conflicted_notes_empty_when_none() {
+    const auto root = fresh_dir("list-conflicts-empty");
+    write_file(root / "note.md", "content");
+
+    expect(list_conflicted_notes(root).empty(), "no_conflicts_found");
+}
+
 static void test_missing_vault_path_returns_zero_counts() {
     const VaultStatus status = compute_vault_status({}, fs::temp_directory_path() / "does-not-exist");
 
@@ -65,6 +88,8 @@ static void test_missing_vault_path_returns_zero_counts() {
 int main() {
     test_counts_tracked_files_from_manifest();
     test_counts_conflicts_and_trash();
+    test_lists_conflicted_notes_deduplicated();
+    test_list_conflicted_notes_empty_when_none();
     test_missing_vault_path_returns_zero_counts();
 
     if (failures == 0) {

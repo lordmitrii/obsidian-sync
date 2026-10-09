@@ -1,6 +1,16 @@
 #include "vault_status.hpp"
 
+#include <algorithm>
+#include <cctype>
+#include <set>
+
 namespace fs = std::filesystem;
+
+static bool is_all_digits(const std::string &text) {
+    return !text.empty() &&
+           std::all_of(text.begin(), text.end(),
+                      [](unsigned char c) { return std::isdigit(c) != 0; });
+}
 
 static bool is_conflict_copy(const fs::path &path) {
     const std::string filename = path.filename().string();
@@ -15,6 +25,43 @@ static bool is_in_trash(const fs::path &path) {
     }
 
     return false;
+}
+
+// Strips the ".conflict-remote" marker (and its numbering, if any) from a
+// conflict copy's filename, leaving the original note's name. The numbering
+// lands on different sides of the marker depending on whether the original
+// note had an extension: "note.conflict-remote.2.md" -> "note.md", but
+// "LICENSE.2.conflict-remote" -> "LICENSE" (no extension to keep it before).
+static fs::path original_note_relative_path(const fs::path &conflict_relative_path) {
+    const std::string filename = conflict_relative_path.filename().string();
+    const std::string marker = ".conflict-remote";
+    const auto marker_pos = filename.find(marker);
+
+    if (marker_pos == std::string::npos) {
+        return conflict_relative_path;
+    }
+
+    std::string base = filename.substr(0, marker_pos);
+    std::string suffix = filename.substr(marker_pos + marker.size());
+
+    if (!suffix.empty() && suffix.front() == '.') {
+        const auto next_dot = suffix.find('.', 1);
+        const std::string number = suffix.substr(1, next_dot == std::string::npos
+                                                       ? std::string::npos
+                                                       : next_dot - 1);
+
+        if (is_all_digits(number)) {
+            suffix = next_dot == std::string::npos ? "" : suffix.substr(next_dot);
+        }
+    } else if (suffix.empty()) {
+        const auto last_dot = base.rfind('.');
+
+        if (last_dot != std::string::npos && is_all_digits(base.substr(last_dot + 1))) {
+            base = base.substr(0, last_dot);
+        }
+    }
+
+    return conflict_relative_path.parent_path() / (base + suffix);
 }
 
 VaultStatus compute_vault_status(const Manifest &base_manifest, const fs::path &vault_path) {
@@ -42,4 +89,27 @@ VaultStatus compute_vault_status(const Manifest &base_manifest, const fs::path &
     }
 
     return status;
+}
+
+std::vector<std::string> list_conflicted_notes(const fs::path &vault_path) {
+    std::set<std::string> notes;
+
+    if (!fs::exists(vault_path)) {
+        return {};
+    }
+
+    for (const auto &entry : fs::recursive_directory_iterator(vault_path)) {
+        if (entry.is_symlink() || !entry.is_regular_file() || is_in_trash(entry.path())) {
+            continue;
+        }
+
+        if (!is_conflict_copy(entry.path())) {
+            continue;
+        }
+
+        fs::path relative_path = fs::relative(entry.path(), vault_path);
+        notes.insert(original_note_relative_path(relative_path).generic_string());
+    }
+
+    return {notes.begin(), notes.end()};
 }
