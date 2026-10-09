@@ -38,6 +38,7 @@ add_library(obsidian-sync-core
     src/core/output.cpp
     src/core/scanner.cpp
     src/core/security.cpp
+    src/core/vault_status.cpp
     src/sync/http_remote_backend.cpp
     src/sync/local_remote_backend.cpp
     src/sync/sync_plan.cpp
@@ -140,3 +141,7 @@ add_test(NAME access-log-tests COMMAND access-log-tests)
 add_executable(metrics-tests tests/unit/test_metrics.cpp)
 target_link_libraries(metrics-tests PRIVATE obsidian-sync-core)
 add_test(NAME metrics-tests COMMAND metrics-tests)
+
+add_executable(vault-status-tests tests/unit/test_vault_status.cpp)
+target_link_libraries(vault-status-tests PRIVATE obsidian-sync-core)
+add_test(NAME vault-status-tests COMMAND vault-status-tests)
