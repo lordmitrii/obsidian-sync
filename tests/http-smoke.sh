@@ -235,6 +235,9 @@ test_client_sync_and_state() {
     echo "$status_json" | grep -q '"unresolved_conflicts": 1' ||
         fail "status should report the unresolved conflict"
 
+    "$CLIENT_BINARY" --vault "$dir/local" --conflicts |
+        grep -Fx "conflict.md" >/dev/null || fail "conflicts should list conflict.md"
+
     stop_server
     echo "PASS: HTTP sync applies and updates state"
 }
