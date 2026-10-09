@@ -230,6 +230,11 @@ test_client_sync_and_state() {
     grep -Fx "unchanged upload.md" "$dir/second-plan.txt" >/dev/null ||
         fail "upload should be marked synced"
 
+    local status_json
+    status_json="$("$CLIENT_BINARY" --vault "$dir/local" --state "$dir/state.db" --status --json)"
+    echo "$status_json" | grep -q '"unresolved_conflicts": 1' ||
+        fail "status should report the unresolved conflict"
+
     stop_server
     echo "PASS: HTTP sync applies and updates state"
 }
