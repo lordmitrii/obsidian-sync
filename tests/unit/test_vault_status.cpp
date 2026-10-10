@@ -3,6 +3,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <stdexcept>
 
 namespace fs = std::filesystem;
 
@@ -19,6 +20,11 @@ static void write_file(const fs::path &path, const std::string &content) {
     fs::create_directories(path.parent_path());
     std::ofstream out(path, std::ios::binary);
     out << content;
+}
+
+static std::string read_file(const fs::path &path) {
+    std::ifstream in(path, std::ios::binary);
+    return {std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>()};
 }
 
 static fs::path fresh_dir(const std::string &name) {
@@ -85,12 +91,71 @@ static void test_missing_vault_path_returns_zero_counts() {
     expect(status.trashed_files == 0, "missing_vault_no_trashed_files");
 }
 
+static void test_resolve_conflict_keep_local_deletes_copies() {
+    const auto root = fresh_dir("resolve-keep-local");
+    write_file(root / "note.md", "local content");
+    write_file(root / "note.conflict-remote.md", "remote content");
+    write_file(root / "note.conflict-remote.2.md", "second remote content");
+
+    bool resolved = resolve_conflict(root, "note.md", ConflictResolution::KeepLocal);
+
+    expect(resolved, "resolve_keep_local_reports_resolved");
+    expect(read_file(root / "note.md") == "local content", "keep_local_leaves_note_unchanged");
+    expect(!fs::exists(root / "note.conflict-remote.md"), "keep_local_removes_first_copy");
+    expect(!fs::exists(root / "note.conflict-remote.2.md"), "keep_local_removes_second_copy");
+    expect(list_conflicted_notes(root).empty(), "keep_local_leaves_no_conflicts");
+}
+
+static void test_resolve_conflict_keep_remote_uses_newest_copy() {
+    const auto root = fresh_dir("resolve-keep-remote");
+    write_file(root / "note.md", "local content");
+    write_file(root / "note.conflict-remote.md", "remote content");
+    write_file(root / "note.conflict-remote.2.md", "newest remote content");
+
+    bool resolved = resolve_conflict(root, "note.md", ConflictResolution::KeepRemote);
+
+    expect(resolved, "resolve_keep_remote_reports_resolved");
+    expect(read_file(root / "note.md") == "newest remote content", "keep_remote_uses_latest_copy");
+    expect(!fs::exists(root / "note.conflict-remote.md"), "keep_remote_removes_first_copy");
+    expect(!fs::exists(root / "note.conflict-remote.2.md"), "keep_remote_removes_second_copy");
+    expect(list_conflicted_notes(root).empty(), "keep_remote_leaves_no_conflicts");
+}
+
+static void test_resolve_conflict_returns_false_when_nothing_to_resolve() {
+    const auto root = fresh_dir("resolve-none");
+    write_file(root / "note.md", "content");
+
+    expect(!resolve_conflict(root, "note.md", ConflictResolution::KeepLocal),
+           "resolve_reports_unresolved_when_no_copies");
+}
+
+static void test_parse_conflict_resolution() {
+    expect(parse_conflict_resolution("local") == ConflictResolution::KeepLocal,
+           "parses_local");
+    expect(parse_conflict_resolution("remote") == ConflictResolution::KeepRemote,
+           "parses_remote");
+
+    bool threw = false;
+
+    try {
+        parse_conflict_resolution("bogus");
+    } catch (const std::runtime_error &) {
+        threw = true;
+    }
+
+    expect(threw, "rejects_unknown_resolution");
+}
+
 int main() {
     test_counts_tracked_files_from_manifest();
     test_counts_conflicts_and_trash();
     test_lists_conflicted_notes_deduplicated();
     test_list_conflicted_notes_empty_when_none();
     test_missing_vault_path_returns_zero_counts();
+    test_resolve_conflict_keep_local_deletes_copies();
+    test_resolve_conflict_keep_remote_uses_newest_copy();
+    test_resolve_conflict_returns_false_when_nothing_to_resolve();
+    test_parse_conflict_resolution();
 
     if (failures == 0) {
         std::cout << "All vault status tests passed\n";
