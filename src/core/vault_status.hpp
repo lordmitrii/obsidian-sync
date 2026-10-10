@@ -23,6 +23,10 @@ VaultStatus compute_vault_status(const Manifest &base_manifest,
 // copies is still listed once.
 std::vector<std::string> list_conflicted_notes(const std::filesystem::path &vault_path);
 
+// The path of a note's nth conflict copy: n == 1 is
+// "name.conflict-remote.ext", n >= 2 is "name.conflict-remote.n.ext".
+std::filesystem::path conflict_copy_path(const std::filesystem::path &note_path, int n);
+
 enum class ConflictResolution { KeepLocal, KeepRemote };
 
 ConflictResolution parse_conflict_resolution(const std::string &text);

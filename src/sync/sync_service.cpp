@@ -6,6 +6,7 @@
 #include "manifest_action.hpp"
 #include "scanner.hpp"
 #include "three_way_compare.hpp"
+#include "vault_status.hpp"
 
 #include <filesystem>
 #include <iostream>
@@ -25,19 +26,6 @@ static Manifest files_to_manifest(const std::vector<FileMeta> &files) {
     return manifest;
 }
 
-static fs::path remote_conflict_path(const fs::path &local_path) {
-    return local_path.parent_path() /
-           (local_path.stem().string() + ".conflict-remote" + local_path.extension().string());
-}
-
-// Numbers past the first conflict copy: name.conflict-remote.ext,
-// name.conflict-remote.2.ext, name.conflict-remote.3.ext, ...
-static fs::path numbered_conflict_path(const fs::path &first_choice, int n) {
-    return first_choice.parent_path() /
-           (first_choice.stem().string() + "." + std::to_string(n) +
-            first_choice.extension().string());
-}
-
 struct ConflictCopySlot {
     fs::path path;
     bool up_to_date;
@@ -45,10 +33,8 @@ struct ConflictCopySlot {
 
 static ConflictCopySlot pick_conflict_copy_slot(const fs::path &local_path,
                                                 const std::string *remote_hash) {
-    fs::path first_choice = remote_conflict_path(local_path);
-
     for (int n = 1;; ++n) {
-        fs::path candidate = n == 1 ? first_choice : numbered_conflict_path(first_choice, n);
+        fs::path candidate = conflict_copy_path(local_path, n);
 
         if (!fs::exists(candidate)) {
             return {candidate, false};

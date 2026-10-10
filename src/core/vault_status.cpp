@@ -117,10 +117,10 @@ std::vector<std::string> list_conflicted_notes(const fs::path &vault_path) {
     return {notes.begin(), notes.end()};
 }
 
-static fs::path conflict_copy_candidate(const fs::path &note_absolute_path, int n) {
-    fs::path first_choice = note_absolute_path.parent_path() /
-                            (note_absolute_path.stem().string() + ".conflict-remote" +
-                             note_absolute_path.extension().string());
+fs::path conflict_copy_path(const fs::path &note_path, int n) {
+    fs::path first_choice = note_path.parent_path() /
+                            (note_path.stem().string() + ".conflict-remote" +
+                             note_path.extension().string());
 
     if (n == 1) {
         return first_choice;
@@ -135,7 +135,7 @@ static std::vector<fs::path> existing_conflict_copies(const fs::path &note_absol
     std::vector<fs::path> copies;
 
     for (int n = 1;; ++n) {
-        fs::path candidate = conflict_copy_candidate(note_absolute_path, n);
+        fs::path candidate = conflict_copy_path(note_absolute_path, n);
 
         if (!fs::exists(candidate)) {
             break;
