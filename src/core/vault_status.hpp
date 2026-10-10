@@ -22,3 +22,15 @@ VaultStatus compute_vault_status(const Manifest &base_manifest,
 // next to them, sorted and deduplicated so a note with several numbered
 // copies is still listed once.
 std::vector<std::string> list_conflicted_notes(const std::filesystem::path &vault_path);
+
+enum class ConflictResolution { KeepLocal, KeepRemote };
+
+ConflictResolution parse_conflict_resolution(const std::string &text);
+
+// Resolves a note's conflict by deleting all of its "name.conflict-remote[.N]"
+// copies (KeepLocal), or by replacing the note with the newest copy's
+// contents before deleting the copies (KeepRemote). Deleted copies go to
+// <vault_path>/.trash like any other removal. Returns false if the note has
+// no unresolved conflict copies to resolve.
+bool resolve_conflict(const std::filesystem::path &vault_path,
+                      const std::string &note_relative_path, ConflictResolution resolution);

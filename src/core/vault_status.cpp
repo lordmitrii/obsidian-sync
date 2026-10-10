@@ -1,8 +1,11 @@
 #include "vault_status.hpp"
 
+#include "atomic_file.hpp"
+
 #include <algorithm>
 #include <cctype>
 #include <set>
+#include <stdexcept>
 
 namespace fs = std::filesystem;
 
@@ -112,4 +115,68 @@ std::vector<std::string> list_conflicted_notes(const fs::path &vault_path) {
     }
 
     return {notes.begin(), notes.end()};
+}
+
+static fs::path conflict_copy_candidate(const fs::path &note_absolute_path, int n) {
+    fs::path first_choice = note_absolute_path.parent_path() /
+                            (note_absolute_path.stem().string() + ".conflict-remote" +
+                             note_absolute_path.extension().string());
+
+    if (n == 1) {
+        return first_choice;
+    }
+
+    return first_choice.parent_path() /
+           (first_choice.stem().string() + "." + std::to_string(n) +
+            first_choice.extension().string());
+}
+
+static std::vector<fs::path> existing_conflict_copies(const fs::path &note_absolute_path) {
+    std::vector<fs::path> copies;
+
+    for (int n = 1;; ++n) {
+        fs::path candidate = conflict_copy_candidate(note_absolute_path, n);
+
+        if (!fs::exists(candidate)) {
+            break;
+        }
+
+        copies.push_back(candidate);
+    }
+
+    return copies;
+}
+
+ConflictResolution parse_conflict_resolution(const std::string &text) {
+    if (text == "local") {
+        return ConflictResolution::KeepLocal;
+    }
+
+    if (text == "remote") {
+        return ConflictResolution::KeepRemote;
+    }
+
+    throw std::runtime_error("--keep must be local or remote");
+}
+
+bool resolve_conflict(const fs::path &vault_path, const std::string &note_relative_path,
+                      ConflictResolution resolution) {
+    fs::path note_absolute_path = vault_path / note_relative_path;
+    std::vector<fs::path> copies = existing_conflict_copies(note_absolute_path);
+
+    if (copies.empty()) {
+        return false;
+    }
+
+    if (resolution == ConflictResolution::KeepRemote) {
+        atomic_copy_file(copies.back(), note_absolute_path);
+    }
+
+    fs::path trash_root = vault_path / ".trash";
+
+    for (const auto &copy : copies) {
+        move_to_trash(copy, trash_root, fs::relative(copy, vault_path));
+    }
+
+    return true;
 }
