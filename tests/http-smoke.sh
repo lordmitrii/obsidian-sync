@@ -238,6 +238,16 @@ test_client_sync_and_state() {
     "$CLIENT_BINARY" --vault "$dir/local" --conflicts |
         grep -Fx "conflict.md" >/dev/null || fail "conflicts should list conflict.md"
 
+    "$CLIENT_BINARY" --vault "$dir/local" --resolve-conflict "conflict.md" --keep remote \
+        >/dev/null || fail "resolve-conflict should succeed"
+
+    assert_file_content "$dir/local/conflict.md" "remote-conflict"
+    assert_missing "$dir/local/conflict.conflict-remote.md"
+
+    "$CLIENT_BINARY" --vault "$dir/local" --conflicts |
+        grep -Fx "No unresolved conflicts" >/dev/null ||
+        fail "conflicts should be empty after resolving"
+
     stop_server
     echo "PASS: HTTP sync applies and updates state"
 }
