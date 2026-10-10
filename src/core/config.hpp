@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ignore_rules.hpp"
+#include "vault_status.hpp"
 
 #include <cstddef>
 #include <filesystem>
@@ -17,6 +18,8 @@ struct Config {
     std::string manifest_file_path;
     bool status_output = false;
     bool conflicts_output = false;
+    std::string resolve_conflict_path;
+    ConflictResolution conflict_resolution = ConflictResolution::KeepLocal;
     std::filesystem::path server_root;
     std::string server_host = "127.0.0.1";
     int server_port = 38471;

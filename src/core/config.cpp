@@ -47,6 +47,7 @@ void print_usage() {
         "  obsidian-sync-client --vault <path> --manifest | --manifest-file <path>\n"
         "  obsidian-sync-client --vault <path> --status [--json]\n"
         "  obsidian-sync-client --vault <path> --conflicts [--json]\n"
+        "  obsidian-sync-client --vault <path> --resolve-conflict <note> --keep local|remote\n"
         "  obsidian-sync-client --compare-manifests <a> <b>\n"
         "  obsidian-sync-client --local-root <path> (--remote-root <path> | --remote-url <url>)\n"
         "                        [--state <path>] [--apply] [--watch --interval <seconds>]\n"
@@ -64,6 +65,8 @@ void print_usage() {
         "  --manifest-file <path>      Write a manifest of the vault to a file\n"
         "  --status                    Print tracked file, conflict and trash counts for the vault\n"
         "  --conflicts                 List notes with an unresolved conflict copy\n"
+        "  --resolve-conflict <note>    Resolve a note's unresolved conflict (needs --keep)\n"
+        "  --keep <local|remote>        Which copy --resolve-conflict should keep\n"
         "  --compare-manifests <a> <b> Diff two saved manifests\n"
         "  --local-root <path>         Local vault to sync\n"
         "  --remote-root <path>        Remote directory to sync against (for testing)\n"
@@ -90,6 +93,7 @@ void print_usage() {
 
 Config parse_args(int argc, char *argv[]) {
     Config config;
+    bool keep_specified = false;
 
     for (int i = 1; i < argc; ++i) {
         std::string arg = argv[i];
@@ -121,6 +125,19 @@ Config parse_args(int argc, char *argv[]) {
             config.status_output = true;
         } else if (arg == "--conflicts") {
             config.conflicts_output = true;
+        } else if (arg == "--resolve-conflict") {
+            if (i + 1 >= argc) {
+                throw std::runtime_error("--resolve-conflict requires a note path");
+            }
+
+            config.resolve_conflict_path = argv[++i];
+        } else if (arg == "--keep") {
+            if (i + 1 >= argc) {
+                throw std::runtime_error("--keep requires local or remote");
+            }
+
+            config.conflict_resolution = parse_conflict_resolution(argv[++i]);
+            keep_specified = true;
         } else if (arg == "--manifest-file") {
             if (i + 1 >= argc) {
                 throw std::runtime_error("--manifest-file requires a path");
@@ -256,6 +273,10 @@ Config parse_args(int argc, char *argv[]) {
 
     if (config.watch && !config.apply) {
         throw std::runtime_error("--watch requires --apply");
+    }
+
+    if (!config.resolve_conflict_path.empty() && !keep_specified) {
+        throw std::runtime_error("--resolve-conflict requires --keep local|remote");
     }
 
     if (!config.compare_manifests && config.vault_path.empty() && config.server_root.empty() &&

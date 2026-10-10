@@ -115,6 +115,26 @@ int main(int argc, char *argv[]) {
             return 0;
         }
 
+        if (!config.resolve_conflict_path.empty()) {
+            if (!fs::exists(config.vault_path) || !fs::is_directory(config.vault_path)) {
+                std::cerr << "Path does not exist or is not a directory\n";
+                return 1;
+            }
+
+            if (!resolve_conflict(config.vault_path, config.resolve_conflict_path,
+                                  config.conflict_resolution)) {
+                std::cerr << "No unresolved conflict found for " << config.resolve_conflict_path
+                          << "\n";
+                return 1;
+            }
+
+            if (!config.quiet) {
+                std::cout << "Resolved " << config.resolve_conflict_path << "\n";
+            }
+
+            return 0;
+        }
+
         if (!config.local_root.empty() && !config.remote_url.empty()) {
             if (!fs::exists(config.local_root) || !fs::is_directory(config.local_root)) {
                 std::cerr << "Local root does not exist or is not a directory\n";
