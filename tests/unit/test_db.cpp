@@ -91,11 +91,59 @@ static void test_state_survives_reopen() {
     fs::remove(path);
 }
 
+static void test_initialize_is_safe_to_call_repeatedly() {
+    const auto path = fresh_db_path("reinitialize");
+    Database db(path.string());
+    db.initialize();
+    db.initialize();
+    db.save_file(meta("a.md", "x"));
+    expect(db.get_file("a.md").has_value(), "repeated_initialize_keeps_files_table_usable");
+    fs::remove(path);
+}
+
+static void test_record_and_resolve_conflict() {
+    const auto path = fresh_db_path("conflict-lifecycle");
+    Database db(path.string());
+    db.initialize();
+    db.record_conflict("a.md", "local-hash", "remote-hash", 1000);
+
+    auto unresolved = db.get_unresolved_conflicts();
+    expect(unresolved.size() == 1, "conflict_recorded");
+    expect(unresolved.size() == 1 && unresolved[0].path == "a.md", "conflict_path");
+    expect(unresolved.size() == 1 && unresolved[0].local_hash == "local-hash",
+          "conflict_local_hash");
+    expect(unresolved.size() == 1 && unresolved[0].remote_hash == "remote-hash",
+          "conflict_remote_hash");
+    expect(unresolved.size() == 1 && unresolved[0].detected_time == 1000,
+          "conflict_detected_time");
+
+    db.mark_conflict_resolved("a.md", "remote", 2000);
+    expect(db.get_unresolved_conflicts().empty(), "resolved_conflict_no_longer_unresolved");
+    fs::remove(path);
+}
+
+static void test_record_conflict_upserts_on_retrigger() {
+    const auto path = fresh_db_path("conflict-upsert");
+    Database db(path.string());
+    db.initialize();
+    db.record_conflict("a.md", "local-1", "remote-1", 1000);
+    db.record_conflict("a.md", "local-2", "remote-2", 2000);
+
+    auto unresolved = db.get_unresolved_conflicts();
+    expect(unresolved.size() == 1, "retriggered_conflict_keeps_one_row");
+    expect(unresolved.size() == 1 && unresolved[0].remote_hash == "remote-2",
+          "retriggered_conflict_updates_hash");
+    fs::remove(path);
+}
+
 int main() {
     test_save_and_get();
     test_save_overwrites_existing_row();
     test_delete_and_list();
     test_state_survives_reopen();
+    test_initialize_is_safe_to_call_repeatedly();
+    test_record_and_resolve_conflict();
+    test_record_conflict_upserts_on_retrigger();
 
     if (failures != 0) {
         std::cerr << failures << " test(s) failed\n";
