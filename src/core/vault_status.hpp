@@ -30,6 +30,7 @@ std::filesystem::path conflict_copy_path(const std::filesystem::path &note_path,
 enum class ConflictResolution { KeepLocal, KeepRemote };
 
 ConflictResolution parse_conflict_resolution(const std::string &text);
+std::string conflict_resolution_to_string(ConflictResolution resolution);
 
 // Resolves a note's conflict by deleting all of its "name.conflict-remote[.N]"
 // copies (KeepLocal), or by replacing the note with the newest copy's

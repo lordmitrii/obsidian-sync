@@ -159,6 +159,10 @@ ConflictResolution parse_conflict_resolution(const std::string &text) {
     throw std::runtime_error("--keep must be local or remote");
 }
 
+std::string conflict_resolution_to_string(ConflictResolution resolution) {
+    return resolution == ConflictResolution::KeepLocal ? "local" : "remote";
+}
+
 bool resolve_conflict(const fs::path &vault_path, const std::string &note_relative_path,
                       ConflictResolution resolution) {
     fs::path note_absolute_path = vault_path / note_relative_path;

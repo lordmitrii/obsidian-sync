@@ -139,6 +139,15 @@ int main(int argc, char *argv[]) {
                 return 1;
             }
 
+            Database db(config.state_db_path);
+            db.initialize();
+            db.mark_conflict_resolved(
+                config.resolve_conflict_path,
+                conflict_resolution_to_string(config.conflict_resolution),
+                std::chrono::duration_cast<std::chrono::seconds>(
+                    std::chrono::system_clock::now().time_since_epoch())
+                    .count());
+
             if (!config.quiet) {
                 std::cout << "Resolved " << config.resolve_conflict_path << "\n";
             }
