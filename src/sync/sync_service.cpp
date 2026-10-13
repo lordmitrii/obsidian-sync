@@ -8,6 +8,7 @@
 #include "three_way_compare.hpp"
 #include "vault_status.hpp"
 
+#include <chrono>
 #include <filesystem>
 #include <iostream>
 #include <set>
@@ -108,12 +109,25 @@ static bool remote_manifest_suspiciously_empty(const Manifest &remote_manifest,
     return remote_manifest.empty() && base_manifest.size() >= kMinBaseSizeForPercentLimit;
 }
 
-static size_t report_unresolved_conflicts(const std::vector<ManifestAction> &actions) {
+static size_t report_unresolved_conflicts(Database &db,
+                                          const std::vector<ManifestAction> &actions,
+                                          const Manifest &local_manifest,
+                                          const Manifest &remote_manifest) {
     std::vector<std::string> paths;
+    auto detected_time = std::chrono::duration_cast<std::chrono::seconds>(
+                             std::chrono::system_clock::now().time_since_epoch())
+                             .count();
 
     for (const auto &action : actions) {
         if (action.type == ManifestActionType::Conflict) {
             paths.push_back(action.path);
+
+            auto local_it = local_manifest.find(action.path);
+            auto remote_it = remote_manifest.find(action.path);
+            db.record_conflict(action.path,
+                               local_it != local_manifest.end() ? local_it->second.hash : "",
+                               remote_it != remote_manifest.end() ? remote_it->second.hash : "",
+                               detected_time);
         }
     }
 
@@ -299,7 +313,8 @@ RunStatus SyncService::run_once() {
 
     print_manifest_actions(actions, quiet_, verbose_);
 
-    size_t conflict_count = report_unresolved_conflicts(actions);
+    size_t conflict_count =
+        report_unresolved_conflicts(db, actions, local_manifest, remote_manifest);
 
     if (!apply_) {
         return conflict_count > 0 ? RunStatus::ConflictsPending : RunStatus::Success;
