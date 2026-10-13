@@ -1,3 +1,4 @@
+#include "db.hpp"
 #include "local_remote_backend.hpp"
 #include "sync_service.hpp"
 
@@ -223,6 +224,14 @@ static void test_conflict_keeps_local_and_saves_remote_copy() {
     expect(read_file(f.remote / "a.md") == "remote edit!", "conflict_keeps_remote");
     expect(read_file(f.local / "a.conflict-remote.md") == "remote edit!",
            "conflict_saves_remote_copy");
+
+    Database db(f.state);
+    db.initialize();
+    auto unresolved = db.get_unresolved_conflicts();
+    expect(unresolved.size() == 1 && unresolved[0].path == "a.md",
+          "conflict_recorded_in_state_db");
+    expect(unresolved.size() == 1 && unresolved[0].local_hash != unresolved[0].remote_hash,
+          "conflict_record_has_differing_hashes");
 }
 
 static void test_repeated_conflict_does_not_fail_forever() {
