@@ -6,6 +6,7 @@
 #include <fstream>
 #include <iostream>
 #include <iterator>
+#include <sstream>
 
 namespace fs = std::filesystem;
 
@@ -452,6 +453,42 @@ static void test_edit_during_sync_run_is_not_lost() {
     expect(read_file(f.local / "a.md") == "v2 mid-run edit", "mid_run_edit_survives_locally");
 }
 
+static void test_quiet_suppresses_output_verbose_shows_unchanged() {
+    Fixture f("quiet-verbose");
+    write_file(f.local / "a.md", "v1");
+    f.sync();
+
+    LocalRemoteBackend backend(f.remote);
+
+    std::ostringstream normal_out;
+    std::streambuf *old_buf = std::cout.rdbuf(normal_out.rdbuf());
+    SyncService normal_service(f.local, f.state, backend, true);
+    normal_service.run_once();
+    std::cout.rdbuf(old_buf);
+
+    expect(normal_out.str().find("unchanged") == std::string::npos,
+           "default_output_omits_unchanged");
+
+    std::ostringstream quiet_out;
+    old_buf = std::cout.rdbuf(quiet_out.rdbuf());
+    SyncService quiet_service(f.local, f.state, backend, true, DeleteSafetyLimits{}, 30,
+                              SyncConfigPreset::All, true, false);
+    quiet_service.run_once();
+    std::cout.rdbuf(old_buf);
+
+    expect(quiet_out.str().empty(), "quiet_suppresses_action_output");
+
+    std::ostringstream verbose_out;
+    old_buf = std::cout.rdbuf(verbose_out.rdbuf());
+    SyncService verbose_service(f.local, f.state, backend, true, DeleteSafetyLimits{}, 30,
+                                SyncConfigPreset::All, false, true);
+    verbose_service.run_once();
+    std::cout.rdbuf(old_buf);
+
+    expect(verbose_out.str().find("unchanged a.md") != std::string::npos,
+           "verbose_shows_unchanged");
+}
+
 int main() {
     test_first_sync_uploads_and_downloads();
     test_dry_run_changes_nothing();
@@ -474,6 +511,7 @@ int main() {
     test_trash_cleanup_removes_old_entry_on_next_sync();
     test_trash_retention_days_zero_disables_cleanup();
     test_edit_during_sync_run_is_not_lost();
+    test_quiet_suppresses_output_verbose_shows_unchanged();
 
     if (failures != 0) {
         std::cerr << failures << " test(s) failed\n";

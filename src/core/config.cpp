@@ -60,6 +60,7 @@ void print_usage() {
         "  --state <path>              State database path (default: state.db)\n"
         "  --dry-run                   Compute the plan without touching the database\n"
         "  --quiet                     Suppress routine progress messages (errors still print)\n"
+        "  --verbose                   Also print unchanged files in the sync plan\n"
         "  --json                      Print output as JSON\n"
         "  --manifest                  Print a manifest of the vault instead of a sync plan\n"
         "  --manifest-file <path>      Write a manifest of the vault to a file\n"
@@ -117,6 +118,8 @@ Config parse_args(int argc, char *argv[]) {
             config.dry_run = true;
         } else if (arg == "--quiet") {
             config.quiet = true;
+        } else if (arg == "--verbose") {
+            config.verbose = true;
         } else if (arg == "--json") {
             config.json_output = true;
         } else if (arg == "--manifest") {

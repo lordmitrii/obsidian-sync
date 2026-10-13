@@ -46,8 +46,18 @@ static ConflictCopySlot pick_conflict_copy_slot(const fs::path &local_path,
     }
 }
 
-static void print_manifest_actions(const std::vector<ManifestAction> &actions) {
+static void print_manifest_actions(const std::vector<ManifestAction> &actions,
+                                   bool quiet,
+                                   bool verbose) {
+    if (quiet) {
+        return;
+    }
+
     for (const auto &action : actions) {
+        if (action.type == ManifestActionType::Unchanged && !verbose) {
+            continue;
+        }
+
         std::cout << manifest_action_to_string(action.type) << " " << action.path << "\n";
     }
 
@@ -265,14 +275,18 @@ SyncService::SyncService(fs::path local_root,
                          bool apply,
                          DeleteSafetyLimits delete_limits,
                          int trash_retention_days,
-                         SyncConfigPreset sync_config)
+                         SyncConfigPreset sync_config,
+                         bool quiet,
+                         bool verbose)
     : local_root_(std::move(local_root)),
       state_db_path_(std::move(state_db_path)),
       remote_backend_(remote_backend),
       apply_(apply),
       delete_limits_(delete_limits),
       trash_retention_days_(trash_retention_days),
-      sync_config_(sync_config) {}
+      sync_config_(sync_config),
+      quiet_(quiet),
+      verbose_(verbose) {}
 
 RunStatus SyncService::run_once() {
     Database db(state_db_path_);
@@ -283,7 +297,7 @@ RunStatus SyncService::run_once() {
     auto remote_manifest = remote_backend_.load_manifest();
     auto actions = compare_three_way(base_manifest, local_manifest, remote_manifest);
 
-    print_manifest_actions(actions);
+    print_manifest_actions(actions, quiet_, verbose_);
 
     size_t conflict_count = report_unresolved_conflicts(actions);
 

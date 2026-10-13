@@ -13,6 +13,7 @@ struct Config {
     std::string state_db_path = "state.db";
     bool dry_run = false;
     bool quiet = false;
+    bool verbose = false;
     bool json_output = false;
     bool manifest_output = false;
     std::string manifest_file_path;

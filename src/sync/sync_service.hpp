@@ -23,7 +23,9 @@ class SyncService {
                 bool apply,
                 DeleteSafetyLimits delete_limits = {},
                 int trash_retention_days = 30,
-                SyncConfigPreset sync_config = SyncConfigPreset::All);
+                SyncConfigPreset sync_config = SyncConfigPreset::All,
+                bool quiet = false,
+                bool verbose = false);
 
     RunStatus run_once();
 
@@ -35,4 +37,6 @@ class SyncService {
     DeleteSafetyLimits delete_limits_;
     int trash_retention_days_;
     SyncConfigPreset sync_config_;
+    bool quiet_;
+    bool verbose_;
 };
