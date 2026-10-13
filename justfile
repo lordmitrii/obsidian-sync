@@ -29,7 +29,7 @@ _install-and-restart:
     ssh {{host}} "sudo install -m 0755 /tmp/{{bin}} /usr/local/bin/{{bin}} && sudo systemctl restart {{bin}}.service"
     @just status
 
-setup: _setup-user _setup-nginx-http _setup-cert _setup-nginx-https _setup-systemd
+setup: _setup-user _setup-nginx-http _setup-cert _setup-nginx-https _setup-systemd _setup-journald
     @echo "Setup complete. Deploy the binary with: just deploy"
 
 _setup-user:
@@ -77,6 +77,14 @@ _setup-systemd:
         sudo systemctl daemon-reload; \
         sudo systemctl enable obsidian-sync-server; \
         sudo systemctl enable --now obsidian-sync-healthcheck.timer; \
+    "
+
+_setup-journald:
+    scp deploy/journald-obsidian-sync.conf {{host}}:/tmp/
+    ssh {{host}} " \
+        sudo mkdir -p /etc/systemd/journald.conf.d; \
+        sudo cp /tmp/journald-obsidian-sync.conf /etc/systemd/journald.conf.d/obsidian-sync.conf; \
+        sudo systemctl restart systemd-journald; \
     "
 
 install-client:
