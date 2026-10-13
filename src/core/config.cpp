@@ -77,6 +77,8 @@ void print_usage() {
         "  --apply                     Execute the sync plan\n"
         "  --watch                     Keep syncing on an interval (requires --apply)\n"
         "  --interval <seconds>        Seconds between watch runs (default: 30)\n"
+        "  --on-conflict-cmd <cmd>     Run this shell command after a run leaves unresolved "
+        "conflicts\n"
         "  --force-deletes             Apply a plan even if it deletes more than the safety limits\n"
         "  --max-deletes <n>           Abort if a plan deletes more than this many files (default: 50)\n"
         "  --max-delete-percent <pct>  Abort if a plan deletes more than this % of the base state "
@@ -230,6 +232,12 @@ Config parse_args(int argc, char *argv[]) {
             if (config.watch_interval_seconds <= 0) {
                 throw std::runtime_error("--interval must be greater than zero");
             }
+        } else if (arg == "--on-conflict-cmd") {
+            if (i + 1 >= argc) {
+                throw std::runtime_error("--on-conflict-cmd requires a command");
+            }
+
+            config.on_conflict_cmd = argv[++i];
         } else if (arg == "--force-deletes") {
             config.force_deletes = true;
         } else if (arg == "--max-deletes") {

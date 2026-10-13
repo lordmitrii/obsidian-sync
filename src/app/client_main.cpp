@@ -13,6 +13,7 @@
 #include "vault_status.hpp"
 
 #include <chrono>
+#include <cstdlib>
 #include <filesystem>
 #include <iostream>
 #include <thread>
@@ -34,10 +35,20 @@ static int exit_code_for(RunStatus status) {
     return 1;
 }
 
+static void run_conflict_hook_if_needed(const Config &config, RunStatus status) {
+    if (status != RunStatus::ConflictsPending || config.on_conflict_cmd.empty()) {
+        return;
+    }
+
+    if (std::system(config.on_conflict_cmd.c_str()) != 0) {
+        std::cerr << "on-conflict-cmd exited with a non-zero status\n";
+    }
+}
+
 static void run_watch_loop(const Config &config, SyncService &sync_service) {
     while (true) {
         try {
-            sync_service.run_once();
+            run_conflict_hook_if_needed(config, sync_service.run_once());
         } catch (const std::exception &e) {
             std::cerr << "Sync run failed, will retry next interval: " << e.what() << "\n";
         }
@@ -161,7 +172,9 @@ int main(int argc, char *argv[]) {
                 return 0;
             }
 
-            return exit_code_for(sync_service.run_once());
+            RunStatus status = sync_service.run_once();
+            run_conflict_hook_if_needed(config, status);
+            return exit_code_for(status);
         }
 
         if (!config.local_root.empty() && !config.remote_root.empty()) {
@@ -187,7 +200,9 @@ int main(int argc, char *argv[]) {
                 return 0;
             }
 
-            return exit_code_for(sync_service.run_once());
+            RunStatus status = sync_service.run_once();
+            run_conflict_hook_if_needed(config, status);
+            return exit_code_for(status);
         }
 
         fs::path root_path = config.vault_path;

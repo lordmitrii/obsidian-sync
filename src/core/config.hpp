@@ -37,6 +37,7 @@ struct Config {
     bool apply = false;
     bool watch = false;
     int watch_interval_seconds = 30;
+    std::string on_conflict_cmd;
     bool force_deletes = false;
     size_t max_delete_count = 50;
     double max_delete_percent = 50.0;
