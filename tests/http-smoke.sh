@@ -221,7 +221,8 @@ test_client_sync_and_state() {
     run_expect_exit 2 env OBSIDIAN_SYNC_TOKEN="$TOKEN" "$CLIENT_BINARY" \
         --local-root "$dir/local" \
         --remote-url "$BASE_URL" \
-        --state "$dir/state.db" >"$dir/second-plan.txt"
+        --state "$dir/state.db" \
+        --verbose >"$dir/second-plan.txt"
 
     grep -Fx "conflict conflict.md" "$dir/second-plan.txt" >/dev/null ||
         fail "conflict should remain unresolved"
