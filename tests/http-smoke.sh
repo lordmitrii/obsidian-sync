@@ -222,7 +222,8 @@ test_client_sync_and_state() {
         --local-root "$dir/local" \
         --remote-url "$BASE_URL" \
         --state "$dir/state.db" \
-        --verbose >"$dir/second-plan.txt"
+        --verbose \
+        --on-conflict-cmd "touch '$dir/on-conflict-ran'" >"$dir/second-plan.txt"
 
     grep -Fx "conflict conflict.md" "$dir/second-plan.txt" >/dev/null ||
         fail "conflict should remain unresolved"
@@ -230,6 +231,7 @@ test_client_sync_and_state() {
         fail "download should be marked synced"
     grep -Fx "unchanged upload.md" "$dir/second-plan.txt" >/dev/null ||
         fail "upload should be marked synced"
+    [[ -f "$dir/on-conflict-ran" ]] || fail "on-conflict-cmd should run while a conflict is pending"
 
     local status_json
     status_json="$("$CLIENT_BINARY" --vault "$dir/local" --state "$dir/state.db" --status --json)"
