@@ -50,10 +50,15 @@ static void test_conflicted_notes_to_json() {
     const auto empty = conflicted_notes_to_json({});
     expect(empty["conflicts"].is_array() && empty["conflicts"].empty(), "empty_conflicts_array");
 
-    const auto root = conflicted_notes_to_json({"note.md", "folder/other.md"});
+    const auto root = conflicted_notes_to_json(
+        {{"note.md", "abc", "def", 1700000000}, {"folder/other.md", "", "", 0}});
     expect(root["conflicts"].size() == 2, "two_conflicts");
-    expect(root["conflicts"][0] == "note.md", "first_conflict_path");
-    expect(root["conflicts"][1] == "folder/other.md", "second_conflict_path");
+    expect(root["conflicts"][0]["path"] == "note.md", "first_conflict_path");
+    expect(root["conflicts"][0]["local_hash"] == "abc", "first_conflict_local_hash");
+    expect(root["conflicts"][0]["remote_hash"] == "def", "first_conflict_remote_hash");
+    expect(root["conflicts"][0]["detected_time"] == 1700000000, "first_conflict_detected_time");
+    expect(root["conflicts"][1]["path"] == "folder/other.md", "second_conflict_path");
+    expect(root["conflicts"][1]["local_hash"] == "", "second_conflict_has_no_recorded_hash");
 }
 
 static void test_action_names() {

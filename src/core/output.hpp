@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <nlohmann/json.hpp>
 #include <vector>
 
@@ -18,6 +19,18 @@ nlohmann::json vault_status_to_json(const VaultStatus &status);
 void print_json_vault_status(const VaultStatus &status);
 void print_text_vault_status(const VaultStatus &status);
 
-nlohmann::json conflicted_notes_to_json(const std::vector<std::string> &notes);
-void print_json_conflicted_notes(const std::vector<std::string> &notes);
-void print_text_conflicted_notes(const std::vector<std::string> &notes);
+// A conflicted note paired with the local/remote hashes and detection time
+// recorded in state.db at the time the conflict was found, when available.
+// detected_time is 0 and both hashes are empty for a conflict copy that
+// exists on disk but was never recorded there (e.g. created outside a sync
+// run).
+struct ConflictDetail {
+    std::string path;
+    std::string local_hash;
+    std::string remote_hash;
+    std::int64_t detected_time = 0;
+};
+
+nlohmann::json conflicted_notes_to_json(const std::vector<ConflictDetail> &notes);
+void print_json_conflicted_notes(const std::vector<ConflictDetail> &notes);
+void print_text_conflicted_notes(const std::vector<ConflictDetail> &notes);

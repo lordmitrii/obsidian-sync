@@ -12,6 +12,7 @@
 #include "two_way_compare.hpp"
 #include "vault_status.hpp"
 
+#include <algorithm>
 #include <chrono>
 #include <cstdlib>
 #include <filesystem>
@@ -117,10 +118,32 @@ int main(int argc, char *argv[]) {
 
             auto notes = list_conflicted_notes(config.vault_path);
 
+            Database db(config.state_db_path);
+            db.initialize();
+            auto records = db.get_unresolved_conflicts();
+
+            std::vector<ConflictDetail> details;
+
+            for (const auto &note : notes) {
+                ConflictDetail detail;
+                detail.path = note;
+
+                auto record = std::find_if(records.begin(), records.end(),
+                                           [&](const ConflictRecord &r) { return r.path == note; });
+
+                if (record != records.end()) {
+                    detail.local_hash = record->local_hash;
+                    detail.remote_hash = record->remote_hash;
+                    detail.detected_time = record->detected_time;
+                }
+
+                details.push_back(std::move(detail));
+            }
+
             if (config.json_output) {
-                print_json_conflicted_notes(notes);
+                print_json_conflicted_notes(details);
             } else {
-                print_text_conflicted_notes(notes);
+                print_text_conflicted_notes(details);
             }
 
             return 0;

@@ -71,21 +71,38 @@ void print_text_vault_status(const VaultStatus &status) {
     std::cout << "Trashed files: " << status.trashed_files << "\n";
 }
 
-json conflicted_notes_to_json(const std::vector<std::string> &notes) {
-    return json{{"conflicts", notes}};
+json conflicted_notes_to_json(const std::vector<ConflictDetail> &notes) {
+    json root;
+    root["conflicts"] = json::array();
+
+    for (const auto &note : notes) {
+        root["conflicts"].push_back({{"path", note.path},
+                                     {"local_hash", note.local_hash},
+                                     {"remote_hash", note.remote_hash},
+                                     {"detected_time", note.detected_time}});
+    }
+
+    return root;
 }
 
-void print_json_conflicted_notes(const std::vector<std::string> &notes) {
+void print_json_conflicted_notes(const std::vector<ConflictDetail> &notes) {
     std::cout << conflicted_notes_to_json(notes).dump(2) << "\n";
 }
 
-void print_text_conflicted_notes(const std::vector<std::string> &notes) {
+void print_text_conflicted_notes(const std::vector<ConflictDetail> &notes) {
     if (notes.empty()) {
         std::cout << "No unresolved conflicts\n";
         return;
     }
 
     for (const auto &note : notes) {
-        std::cout << note << "\n";
+        std::cout << note.path;
+
+        if (!note.local_hash.empty() || !note.remote_hash.empty()) {
+            std::cout << "  local=" << note.local_hash << " remote=" << note.remote_hash
+                      << " detected=" << note.detected_time;
+        }
+
+        std::cout << "\n";
     }
 }
