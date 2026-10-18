@@ -54,6 +54,19 @@ static void test_larger_than_read_buffer() {
     fs::remove(other);
 }
 
+static void test_bytes_match_file_digest_for_same_content() {
+    const auto empty = write_temp("bytes-vs-file-empty", "");
+    const auto abc = write_temp("bytes-vs-file-abc", "abc");
+
+    expect(sha256_bytes("") == sha256_file(empty), "empty_bytes_matches_empty_file_digest");
+    expect(sha256_bytes("abc") == sha256_file(abc), "abc_bytes_matches_abc_file_digest");
+    expect(sha256_bytes("abc") != sha256_bytes("abd"), "different_bytes_different_digest");
+    expect(sha256_bytes("abc").size() == 64, "bytes_digest_is_64_hex_chars");
+
+    fs::remove(empty);
+    fs::remove(abc);
+}
+
 static void test_missing_file_throws() {
     bool threw = false;
 
@@ -69,6 +82,7 @@ static void test_missing_file_throws() {
 int main() {
     test_known_digests();
     test_larger_than_read_buffer();
+    test_bytes_match_file_digest_for_same_content();
     test_missing_file_throws();
 
     if (failures == 0) {
