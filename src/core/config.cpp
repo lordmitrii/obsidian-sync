@@ -47,7 +47,7 @@ void print_usage() {
         "  obsidian-sync-client --vault <path> --manifest | --manifest-file <path>\n"
         "  obsidian-sync-client --vault <path> --status [--json]\n"
         "  obsidian-sync-client --vault <path> --conflicts [--json]\n"
-        "  obsidian-sync-client --vault <path> --resolve-conflict <note> --keep local|remote\n"
+        "  obsidian-sync-client --vault <path> --resolve-conflict <note> --keep local|remote|merged\n"
         "  obsidian-sync-client --compare-manifests <a> <b>\n"
         "  obsidian-sync-client --local-root <path> (--remote-root <path> | --remote-url <url>)\n"
         "                        [--state <path>] [--apply] [--watch --interval <seconds>]\n"
@@ -67,7 +67,8 @@ void print_usage() {
         "  --status                    Print tracked file, conflict and trash counts for the vault\n"
         "  --conflicts                 List notes with an unresolved conflict copy\n"
         "  --resolve-conflict <note>    Resolve a note's unresolved conflict (needs --keep)\n"
-        "  --keep <local|remote>        Which copy --resolve-conflict should keep\n"
+        "  --keep <local|remote|merged> Which copy --resolve-conflict should keep (merged: the "
+        "note is already hand-merged, just clear the conflict)\n"
         "  --compare-manifests <a> <b> Diff two saved manifests\n"
         "  --local-root <path>         Local vault to sync\n"
         "  --remote-root <path>        Remote directory to sync against (for testing)\n"
@@ -138,7 +139,7 @@ Config parse_args(int argc, char *argv[]) {
             config.resolve_conflict_path = argv[++i];
         } else if (arg == "--keep") {
             if (i + 1 >= argc) {
-                throw std::runtime_error("--keep requires local or remote");
+                throw std::runtime_error("--keep requires local, remote, or merged");
             }
 
             config.conflict_resolution = parse_conflict_resolution(argv[++i]);
@@ -287,7 +288,7 @@ Config parse_args(int argc, char *argv[]) {
     }
 
     if (!config.resolve_conflict_path.empty() && !keep_specified) {
-        throw std::runtime_error("--resolve-conflict requires --keep local|remote");
+        throw std::runtime_error("--resolve-conflict requires --keep local|remote|merged");
     }
 
     if (!config.compare_manifests && config.vault_path.empty() && config.server_root.empty() &&

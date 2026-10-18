@@ -121,6 +121,19 @@ static void test_resolve_conflict_keep_remote_uses_newest_copy() {
     expect(list_conflicted_notes(root).empty(), "keep_remote_leaves_no_conflicts");
 }
 
+static void test_resolve_conflict_merged_leaves_note_unchanged() {
+    const auto root = fresh_dir("resolve-merged");
+    write_file(root / "note.md", "hand-merged content");
+    write_file(root / "note.conflict-remote.md", "remote content");
+
+    bool resolved = resolve_conflict(root, "note.md", ConflictResolution::Merged);
+
+    expect(resolved, "resolve_merged_reports_resolved");
+    expect(read_file(root / "note.md") == "hand-merged content", "merged_leaves_note_unchanged");
+    expect(!fs::exists(root / "note.conflict-remote.md"), "merged_removes_copy");
+    expect(list_conflicted_notes(root).empty(), "merged_leaves_no_conflicts");
+}
+
 static void test_resolve_conflict_returns_false_when_nothing_to_resolve() {
     const auto root = fresh_dir("resolve-none");
     write_file(root / "note.md", "content");
@@ -134,6 +147,10 @@ static void test_parse_conflict_resolution() {
            "parses_local");
     expect(parse_conflict_resolution("remote") == ConflictResolution::KeepRemote,
            "parses_remote");
+    expect(parse_conflict_resolution("merged") == ConflictResolution::Merged,
+           "parses_merged");
+    expect(conflict_resolution_to_string(ConflictResolution::Merged) == "merged",
+           "merged_to_string");
 
     bool threw = false;
 
@@ -154,6 +171,7 @@ int main() {
     test_missing_vault_path_returns_zero_counts();
     test_resolve_conflict_keep_local_deletes_copies();
     test_resolve_conflict_keep_remote_uses_newest_copy();
+    test_resolve_conflict_merged_leaves_note_unchanged();
     test_resolve_conflict_returns_false_when_nothing_to_resolve();
     test_parse_conflict_resolution();
 

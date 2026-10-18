@@ -156,11 +156,24 @@ ConflictResolution parse_conflict_resolution(const std::string &text) {
         return ConflictResolution::KeepRemote;
     }
 
-    throw std::runtime_error("--keep must be local or remote");
+    if (text == "merged") {
+        return ConflictResolution::Merged;
+    }
+
+    throw std::runtime_error("--keep must be local, remote, or merged");
 }
 
 std::string conflict_resolution_to_string(ConflictResolution resolution) {
-    return resolution == ConflictResolution::KeepLocal ? "local" : "remote";
+    switch (resolution) {
+    case ConflictResolution::KeepLocal:
+        return "local";
+    case ConflictResolution::KeepRemote:
+        return "remote";
+    case ConflictResolution::Merged:
+        return "merged";
+    }
+
+    return "local";
 }
 
 bool resolve_conflict(const fs::path &vault_path, const std::string &note_relative_path,

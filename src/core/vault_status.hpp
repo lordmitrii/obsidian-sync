@@ -27,14 +27,16 @@ std::vector<std::string> list_conflicted_notes(const std::filesystem::path &vaul
 // "name.conflict-remote.ext", n >= 2 is "name.conflict-remote.n.ext".
 std::filesystem::path conflict_copy_path(const std::filesystem::path &note_path, int n);
 
-enum class ConflictResolution { KeepLocal, KeepRemote };
+enum class ConflictResolution { KeepLocal, KeepRemote, Merged };
 
 ConflictResolution parse_conflict_resolution(const std::string &text);
 std::string conflict_resolution_to_string(ConflictResolution resolution);
 
 // Resolves a note's conflict by deleting all of its "name.conflict-remote[.N]"
-// copies (KeepLocal), or by replacing the note with the newest copy's
-// contents before deleting the copies (KeepRemote). Deleted copies go to
+// copies (KeepLocal and Merged both leave the note as-is; Merged just records
+// a different resolution label for a note the user already merged by hand),
+// or by replacing the note with the newest copy's contents before deleting
+// the copies (KeepRemote). Deleted copies go to
 // <vault_path>/.trash like any other removal. Returns false if the note has
 // no unresolved conflict copies to resolve.
 bool resolve_conflict(const std::filesystem::path &vault_path,
