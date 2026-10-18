@@ -145,3 +145,7 @@ add_test(NAME metrics-tests COMMAND metrics-tests)
 add_executable(vault-status-tests tests/unit/test_vault_status.cpp)
 target_link_libraries(vault-status-tests PRIVATE obsidian-sync-core)
 add_test(NAME vault-status-tests COMMAND vault-status-tests)
+
+add_executable(in-memory-remote-backend-tests tests/unit/test_in_memory_remote_backend.cpp)
+target_link_libraries(in-memory-remote-backend-tests PRIVATE obsidian-sync-core)
+add_test(NAME in-memory-remote-backend-tests COMMAND in-memory-remote-backend-tests)
