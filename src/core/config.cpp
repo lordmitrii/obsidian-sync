@@ -46,8 +46,8 @@ void print_usage() {
         "  obsidian-sync-client --vault <path> [--dry-run] [--json]\n"
         "  obsidian-sync-client --vault <path> --manifest | --manifest-file <path>\n"
         "  obsidian-sync-client --vault <path> --status [--json]\n"
-        "  obsidian-sync-client --vault <path> --conflicts [--json]\n"
-        "  obsidian-sync-client --vault <path> --resolve-conflict <note> --keep local|remote|merged\n"
+        "  obsidian-sync-client conflicts list --vault <path> [--json]\n"
+        "  obsidian-sync-client conflicts resolve <note> --vault <path> --keep local|remote|merged\n"
         "  obsidian-sync-client --compare-manifests <a> <b>\n"
         "  obsidian-sync-client --local-root <path> (--remote-root <path> | --remote-url <url>)\n"
         "                        [--state <path>] [--apply] [--watch --interval <seconds>]\n"
@@ -65,8 +65,10 @@ void print_usage() {
         "  --manifest                  Print a manifest of the vault instead of a sync plan\n"
         "  --manifest-file <path>      Write a manifest of the vault to a file\n"
         "  --status                    Print tracked file, conflict and trash counts for the vault\n"
-        "  --conflicts                 List notes with an unresolved conflict copy\n"
-        "  --resolve-conflict <note>    Resolve a note's unresolved conflict (needs --keep)\n"
+        "  --conflicts                 List notes with an unresolved conflict copy (same as "
+        "'conflicts list')\n"
+        "  --resolve-conflict <note>    Resolve a note's unresolved conflict (needs --keep, same "
+        "as 'conflicts resolve <note>')\n"
         "  --keep <local|remote|merged> Which copy --resolve-conflict should keep (merged: the "
         "note is already hand-merged, just clear the conflict)\n"
         "  --compare-manifests <a> <b> Diff two saved manifests\n"
@@ -98,8 +100,32 @@ void print_usage() {
 Config parse_args(int argc, char *argv[]) {
     Config config;
     bool keep_specified = false;
+    int start_index = 1;
 
-    for (int i = 1; i < argc; ++i) {
+    if (argc > 1 && std::string(argv[1]) == "conflicts") {
+        if (argc < 3) {
+            throw std::runtime_error("conflicts requires a subcommand: list or resolve");
+        }
+
+        std::string subcommand = argv[2];
+
+        if (subcommand == "list") {
+            config.conflicts_output = true;
+            start_index = 3;
+        } else if (subcommand == "resolve") {
+            if (argc < 4 || std::string(argv[3]).rfind("--", 0) == 0) {
+                throw std::runtime_error("conflicts resolve requires a note path");
+            }
+
+            config.resolve_conflict_path = argv[3];
+            start_index = 4;
+        } else {
+            throw std::runtime_error("Unknown conflicts subcommand: " + subcommand +
+                                     " (expected list or resolve)");
+        }
+    }
+
+    for (int i = start_index; i < argc; ++i) {
         std::string arg = argv[i];
 
         if (arg == "--help" || arg == "-h") {
