@@ -162,6 +162,27 @@ static void test_conflicts() {
     expect(conflicts.conflicts_output, "conflicts_accepts_flag");
 }
 
+static void test_conflicts_subcommands() {
+    Config list = parse({"conflicts", "list", "--vault", "/tmp"});
+    expect(list.conflicts_output, "conflicts_list_subcommand_sets_conflicts_output");
+    expect(list.vault_path == "/tmp", "conflicts_list_subcommand_still_parses_other_flags");
+
+    Config resolve = parse({"conflicts", "resolve", "note.md", "--vault", "/tmp", "--keep", "remote"});
+    expect(resolve.resolve_conflict_path == "note.md",
+           "conflicts_resolve_subcommand_captures_note_path");
+    expect(resolve.conflict_resolution == ConflictResolution::KeepRemote,
+           "conflicts_resolve_subcommand_still_parses_keep");
+
+    expect(throws_with({"conflicts"}, "conflicts requires a subcommand: list or resolve"),
+           "conflicts_requires_subcommand");
+    expect(throws_with({"conflicts", "bogus", "--vault", "/tmp"},
+                       "Unknown conflicts subcommand: bogus (expected list or resolve)"),
+           "conflicts_rejects_unknown_subcommand");
+    expect(throws_with({"conflicts", "resolve", "--vault", "/tmp"},
+                       "conflicts resolve requires a note path"),
+           "conflicts_resolve_requires_note_path");
+}
+
 int main() {
     test_rejects_trailing_garbage_in_port();
     test_rejects_trailing_garbage_in_interval();
@@ -174,6 +195,7 @@ int main() {
     test_quiet();
     test_status();
     test_conflicts();
+    test_conflicts_subcommands();
 
     if (failures == 0) {
         std::cout << "All config tests passed\n";
