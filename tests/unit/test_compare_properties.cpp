@@ -190,6 +190,112 @@ static void test_property_first_sync_from_empty_base() {
     }
 }
 
+static void test_property_delete_never_drops_a_changed_side() {
+    std::mt19937 rng(97531);
+
+    for (int trial = 0; trial < 300; ++trial) {
+        Manifest base = random_manifest(rng);
+        Manifest local = random_manifest(rng);
+        Manifest remote = random_manifest(rng);
+
+        auto actions = compare_three_way(base, local, remote);
+        std::string case_name = "no_delete_of_changed_side_trial_" + std::to_string(trial);
+
+        for (const auto &action : actions) {
+            auto base_it = base.find(action.path);
+
+            if (action.type == ManifestActionType::DeleteLocal) {
+                auto local_it = local.find(action.path);
+                expect(base_it != base.end() && local_it != local.end() &&
+                           base_it->second.hash == local_it->second.hash,
+                       case_name + "_" + action.path + "_delete_local_keeps_unchanged_side");
+            } else if (action.type == ManifestActionType::DeleteRemote) {
+                auto remote_it = remote.find(action.path);
+                expect(base_it != base.end() && remote_it != remote.end() &&
+                           base_it->second.hash == remote_it->second.hash,
+                       case_name + "_" + action.path + "_delete_remote_keeps_unchanged_side");
+            }
+        }
+    }
+}
+
+static void apply_action_to_manifests(const ManifestAction &action,
+                                      const Manifest &local,
+                                      const Manifest &remote,
+                                      Manifest &new_base,
+                                      Manifest &new_local,
+                                      Manifest &new_remote) {
+    switch (action.type) {
+        case ManifestActionType::Upload:
+            new_remote[action.path] = local.at(action.path);
+            new_base[action.path] = local.at(action.path);
+            break;
+        case ManifestActionType::Download:
+            new_local[action.path] = remote.at(action.path);
+            new_base[action.path] = remote.at(action.path);
+            break;
+        case ManifestActionType::DeleteLocal:
+            new_local.erase(action.path);
+            new_base.erase(action.path);
+            break;
+        case ManifestActionType::DeleteRemote:
+            new_remote.erase(action.path);
+            new_base.erase(action.path);
+            break;
+        case ManifestActionType::Unchanged: {
+            auto local_it = local.find(action.path);
+
+            if (local_it != local.end()) {
+                new_base[action.path] = local_it->second;
+            } else {
+                new_base.erase(action.path);
+            }
+
+            break;
+        }
+        case ManifestActionType::Conflict:
+            break;
+    }
+}
+
+static void test_property_plan_is_idempotent_once_applied() {
+    std::mt19937 rng(864209);
+
+    for (int trial = 0; trial < 300; ++trial) {
+        Manifest base = random_manifest(rng);
+        Manifest local = random_manifest(rng);
+        Manifest remote = random_manifest(rng);
+
+        auto first_run = compare_three_way(base, local, remote);
+
+        Manifest new_base = base;
+        Manifest new_local = local;
+        Manifest new_remote = remote;
+
+        for (const auto &action : first_run) {
+            apply_action_to_manifests(action, local, remote, new_base, new_local, new_remote);
+        }
+
+        auto second_run = compare_three_way(new_base, new_local, new_remote);
+        std::string case_name = "idempotent_trial_" + std::to_string(trial);
+
+        for (const auto &action : first_run) {
+            auto second_action = find_action(second_run, action.path);
+
+            if (action.type == ManifestActionType::Conflict) {
+                expect(second_action == ManifestActionType::Conflict,
+                       case_name + "_" + action.path + "_conflict_stays_a_conflict");
+            } else {
+                // A resolved path either converges to Unchanged (both sides still hold it) or
+                // drops out of the union entirely (a delete that left nothing anywhere) - either
+                // way it must never come back as Upload/Download/Delete/Conflict.
+                expect(!second_action.has_value() || *second_action == ManifestActionType::Unchanged,
+                       case_name + "_" + action.path + "_never_resurfaces_as_a_pending_change");
+            }
+        }
+    }
+}
+
 static ManifestActionType swap_upload_download(ManifestActionType type) {
     switch (type) {
         case ManifestActionType::Upload:
@@ -275,6 +381,8 @@ int main() {
     test_property_swapping_local_and_remote_swaps_the_direction();
     test_property_identical_local_and_remote_never_conflict();
     test_property_first_sync_from_empty_base();
+    test_property_delete_never_drops_a_changed_side();
+    test_property_plan_is_idempotent_once_applied();
     test_property_two_way_swap_swaps_the_direction();
     test_property_two_way_identical_manifests_produce_no_actions();
     test_property_two_way_classifies_every_path_correctly();
