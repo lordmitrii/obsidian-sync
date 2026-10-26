@@ -82,6 +82,10 @@ add_executable(unit-tests tests/unit/test_compare.cpp)
 target_link_libraries(unit-tests PRIVATE obsidian-sync-core)
 add_test(NAME unit-tests COMMAND unit-tests)
 
+add_executable(compare-properties-tests tests/unit/test_compare_properties.cpp)
+target_link_libraries(compare-properties-tests PRIVATE obsidian-sync-core)
+add_test(NAME compare-properties-tests COMMAND compare-properties-tests)
+
 add_executable(scanner-tests tests/unit/test_scanner.cpp)
 target_link_libraries(scanner-tests PRIVATE obsidian-sync-core)
 add_test(NAME scanner-tests COMMAND scanner-tests)
