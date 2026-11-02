@@ -4,3 +4,8 @@ Description=Obsidian Sync healthz watchdog
 [Service]
 Type=oneshot
 ExecStart=/usr/local/bin/obsidian-sync-healthcheck.sh
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
