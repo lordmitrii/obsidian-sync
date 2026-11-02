@@ -183,6 +183,70 @@ static void test_conflicts_subcommands() {
            "conflicts_resolve_requires_note_path");
 }
 
+static void test_compare_manifests() {
+    Config config = parse({"--compare-manifests", "a.json", "b.json"});
+    expect(config.compare_manifests, "compare_manifests_flag_is_set");
+    expect(config.compare_manifest_a == "a.json", "compare_manifests_captures_first_path");
+    expect(config.compare_manifest_b == "b.json", "compare_manifests_captures_second_path");
+
+    expect(throws_with({"--compare-manifests", "a.json"},
+                       "--compare-manifests requires two manifest paths"),
+           "compare_manifests_requires_two_paths");
+}
+
+static void test_watch_requires_apply() {
+    expect(throws_with({"--local-root", "/tmp", "--remote-root", "/tmp", "--watch"},
+                       "--watch requires --apply"),
+           "watch_requires_apply");
+}
+
+static void test_resolve_conflict_requires_keep() {
+    expect(throws_with({"--vault", "/tmp", "--resolve-conflict", "note.md"},
+                       "--resolve-conflict requires --keep local|remote|merged"),
+           "resolve_conflict_requires_keep");
+}
+
+static void test_missing_required_argument() {
+    expect(throws_with({},
+                       "Missing required argument: --vault, --server-root, "
+                       "--compare-manifests, or --local-root with --remote-root/--remote-url"),
+           "missing_required_argument");
+}
+
+static void test_unknown_argument() {
+    expect(throws_with({"--vault", "/tmp", "--bogus-flag"}, "Unknown argument: --bogus-flag"),
+           "unknown_argument_is_rejected");
+}
+
+static void test_server_port_range() {
+    expect(throws_with({"--server-root", "/tmp", "--server-port", "0"},
+                       "--server-port must be between 1 and 65535"),
+           "server_port_rejects_zero");
+    expect(throws_with({"--server-root", "/tmp", "--server-port", "65536"},
+                       "--server-port must be between 1 and 65535"),
+           "server_port_rejects_too_large");
+}
+
+static void test_interval_must_be_positive() {
+    expect(throws_with({"--local-root", "/tmp", "--remote-root", "/tmp", "--apply", "--watch",
+                        "--interval", "0"},
+                       "--interval must be greater than zero"),
+           "interval_rejects_zero");
+}
+
+static void test_max_deletes_rejects_negative() {
+    expect(throws_with({"--local-root", "/tmp", "--remote-root", "/tmp", "--max-deletes", "-1"},
+                       "--max-deletes must not be negative"),
+           "max_deletes_rejects_negative");
+}
+
+static void test_on_conflict_cmd_and_manifest_file() {
+    Config config = parse({"--vault", "/tmp", "--manifest-file", "out.json", "--on-conflict-cmd",
+                           "notify-send conflict"});
+    expect(config.manifest_file_path == "out.json", "manifest_file_path_is_captured");
+    expect(config.on_conflict_cmd == "notify-send conflict", "on_conflict_cmd_is_captured");
+}
+
 int main() {
     test_rejects_trailing_garbage_in_port();
     test_rejects_trailing_garbage_in_interval();
@@ -196,6 +260,15 @@ int main() {
     test_status();
     test_conflicts();
     test_conflicts_subcommands();
+    test_compare_manifests();
+    test_watch_requires_apply();
+    test_resolve_conflict_requires_keep();
+    test_missing_required_argument();
+    test_unknown_argument();
+    test_server_port_range();
+    test_interval_must_be_positive();
+    test_max_deletes_rejects_negative();
+    test_on_conflict_cmd_and_manifest_file();
 
     if (failures == 0) {
         std::cout << "All config tests passed\n";
