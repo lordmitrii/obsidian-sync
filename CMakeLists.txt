@@ -153,3 +153,21 @@ add_test(NAME vault-status-tests COMMAND vault-status-tests)
 add_executable(in-memory-remote-backend-tests tests/unit/test_in_memory_remote_backend.cpp)
 target_link_libraries(in-memory-remote-backend-tests PRIVATE obsidian-sync-core)
 add_test(NAME in-memory-remote-backend-tests COMMAND in-memory-remote-backend-tests)
+
+option(OBSIDIAN_SYNC_BUILD_FUZZERS "Build libFuzzer harnesses (requires Clang)" OFF)
+
+if(OBSIDIAN_SYNC_BUILD_FUZZERS)
+    if(NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+        message(FATAL_ERROR "OBSIDIAN_SYNC_BUILD_FUZZERS requires Clang for -fsanitize=fuzzer")
+    endif()
+
+    add_executable(fuzz-manifest tests/fuzz/fuzz_manifest.cpp)
+    target_link_libraries(fuzz-manifest PRIVATE obsidian-sync-core)
+    target_compile_options(fuzz-manifest PRIVATE -fsanitize=fuzzer,address,undefined)
+    target_link_options(fuzz-manifest PRIVATE -fsanitize=fuzzer,address,undefined)
+
+    add_executable(fuzz-path-validation tests/fuzz/fuzz_path_validation.cpp)
+    target_link_libraries(fuzz-path-validation PRIVATE obsidian-sync-core)
+    target_compile_options(fuzz-path-validation PRIVATE -fsanitize=fuzzer,address,undefined)
+    target_link_options(fuzz-path-validation PRIVATE -fsanitize=fuzzer,address,undefined)
+endif()

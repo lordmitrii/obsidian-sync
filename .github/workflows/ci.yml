@@ -59,3 +59,31 @@ jobs:
 
       - name: Unit tests
         run: ctest --test-dir build-asan --output-on-failure
+
+  fuzz:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y cmake clang libssl-dev libcurl4-openssl-dev libsqlite3-dev
+
+      - name: Cache FetchContent downloads
+        uses: actions/cache@v4
+        with:
+          path: build-fuzz/_deps
+          key: deps-fuzz-${{ hashFiles('CMakeLists.txt') }}
+
+      - name: Configure
+        run: >
+          cmake -S . -B build-fuzz -DCMAKE_BUILD_TYPE=Debug
+          -DCMAKE_CXX_COMPILER=clang++ -DOBSIDIAN_SYNC_BUILD_FUZZERS=ON
+
+      - name: Build fuzzers
+        run: cmake --build build-fuzz -j --target fuzz-manifest fuzz-path-validation
+
+      - name: Fuzz manifest parsing
+        run: build-fuzz/fuzz-manifest -max_total_time=60 tests/fuzz/corpus/manifest
+
+      - name: Fuzz path validation
+        run: build-fuzz/fuzz-path-validation -max_total_time=60 tests/fuzz/corpus/path_validation
