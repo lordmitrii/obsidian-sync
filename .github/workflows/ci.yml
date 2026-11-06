@@ -120,3 +120,33 @@ jobs:
 
       - name: Fuzz path validation
         run: build-fuzz/fuzz-path-validation -max_total_time=60 tests/fuzz/corpus/path_validation
+
+  coverage:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y cmake g++ libssl-dev libcurl4-openssl-dev libsqlite3-dev gcovr
+
+      - name: Cache FetchContent downloads
+        uses: actions/cache@v4
+        with:
+          path: build-coverage/_deps
+          key: deps-coverage-${{ hashFiles('CMakeLists.txt') }}
+
+      - name: Configure with coverage instrumentation
+        run: >
+          cmake -S . -B build-coverage -DCMAKE_BUILD_TYPE=Debug
+          -DCMAKE_CXX_FLAGS="--coverage" -DCMAKE_EXE_LINKER_FLAGS="--coverage"
+
+      - name: Build
+        run: cmake --build build-coverage -j
+
+      - name: Unit tests
+        run: ctest --test-dir build-coverage --output-on-failure
+
+      - name: Coverage report
+        run: >
+          gcovr --root . --filter 'src/core/' --filter 'src/sync/'
+          --print-summary build-coverage >> "$GITHUB_STEP_SUMMARY"
