@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(obsidian_sync)
+project(obsidian_sync VERSION 0.1.0)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -61,6 +61,8 @@ target_link_libraries(
     nlohmann_json::nlohmann_json
     sqlite3
 )
+
+target_compile_definitions(obsidian-sync-core PUBLIC OBSIDIAN_SYNC_VERSION="${PROJECT_VERSION}")
 
 target_include_directories(
     obsidian-sync-core

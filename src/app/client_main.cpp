@@ -72,6 +72,11 @@ int main(int argc, char *argv[]) {
             return 0;
         }
 
+        if (config.version) {
+            std::cout << "obsidian-sync-client " << OBSIDIAN_SYNC_VERSION << "\n";
+            return 0;
+        }
+
         if (config.server_mode) {
             std::cerr << "Use obsidian-sync-server for --server-root\n";
             return 1;

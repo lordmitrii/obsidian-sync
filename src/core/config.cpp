@@ -94,7 +94,8 @@ void print_usage() {
         "  --server-host <host>        Address to bind (default: 127.0.0.1)\n"
         "  --server-port <port>        Port to bind (default: 38471)\n"
         "  --trusted-proxy <ip>        Trust X-Real-IP for rate limiting when the peer is this IP\n"
-        "  --help, -h                  Show this message\n";
+        "  --help, -h                  Show this message\n"
+        "  --version                   Show the version number\n";
 }
 
 Config parse_args(int argc, char *argv[]) {
@@ -130,6 +131,9 @@ Config parse_args(int argc, char *argv[]) {
 
         if (arg == "--help" || arg == "-h") {
             config.help = true;
+            return config;
+        } else if (arg == "--version") {
+            config.version = true;
             return config;
         } else if (arg == "--vault") {
             if (i + 1 >= argc) {

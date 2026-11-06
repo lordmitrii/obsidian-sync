@@ -247,6 +247,18 @@ static void test_on_conflict_cmd_and_manifest_file() {
     expect(config.on_conflict_cmd == "notify-send conflict", "on_conflict_cmd_is_captured");
 }
 
+static void test_help_and_version_short_circuit() {
+    Config help = parse({"--vault", "/tmp", "--help"});
+    expect(help.help, "help_flag_is_set");
+
+    Config help_short = parse({"-h"});
+    expect(help_short.help, "help_short_flag_is_set");
+
+    Config version = parse({"--vault", "/tmp", "--version"});
+    expect(version.version, "version_flag_is_set");
+    expect(!version.help, "version_does_not_also_set_help");
+}
+
 int main() {
     test_rejects_trailing_garbage_in_port();
     test_rejects_trailing_garbage_in_interval();
@@ -269,6 +281,7 @@ int main() {
     test_interval_must_be_positive();
     test_max_deletes_rejects_negative();
     test_on_conflict_cmd_and_manifest_file();
+    test_help_and_version_short_circuit();
 
     if (failures == 0) {
         std::cout << "All config tests passed\n";

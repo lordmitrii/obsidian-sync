@@ -7,8 +7,13 @@
 #include <filesystem>
 #include <string>
 
+#ifndef OBSIDIAN_SYNC_VERSION
+#define OBSIDIAN_SYNC_VERSION "0.1.0-dev"
+#endif
+
 struct Config {
     bool help = false;
+    bool version = false;
     std::filesystem::path vault_path;
     std::string state_db_path = "state.db";
     bool dry_run = false;
