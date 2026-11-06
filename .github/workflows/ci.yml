@@ -68,6 +68,31 @@ jobs:
       - name: Unit tests
         run: ctest --test-dir build-asan --output-on-failure
 
+  thread-sanitizer:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y cmake g++ libssl-dev libcurl4-openssl-dev libsqlite3-dev
+
+      - name: Cache FetchContent downloads
+        uses: actions/cache@v4
+        with:
+          path: build-tsan/_deps
+          key: deps-tsan-${{ hashFiles('CMakeLists.txt') }}
+
+      - name: Configure with ThreadSanitizer
+        run: >
+          cmake -S . -B build-tsan -DCMAKE_BUILD_TYPE=Debug
+          -DCMAKE_CXX_FLAGS="-fsanitize=thread -fno-omit-frame-pointer"
+
+      - name: Build
+        run: cmake --build build-tsan -j
+
+      - name: Unit tests
+        run: ctest --test-dir build-tsan --output-on-failure
+
   fuzz:
     runs-on: ubuntu-24.04
     steps:
