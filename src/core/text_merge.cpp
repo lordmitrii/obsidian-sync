@@ -42,8 +42,6 @@ struct ChangeOp {
     size_t other_start, other_end;
 };
 
-// Classic LCS-based line diff, reduced to just the changed regions (equal
-// runs are the gaps between them and never need to be materialized here).
 std::vector<ChangeOp> diff_change_ops(const std::vector<std::string> &base,
                                       const std::vector<std::string> &other) {
     size_t n = base.size();
@@ -131,11 +129,6 @@ std::vector<Hunk> collect_hunks(const std::vector<std::string> &base,
     return hunks;
 }
 
-// Two hunks are genuinely in conflict if they cover (at least partly) the
-// same base lines. A pure insertion is zero-width, so it only overlaps
-// another zero-width insertion at the exact same point (both sides trying
-// to insert something right there, order undefined) or a non-empty range
-// that strictly contains that point.
 bool genuinely_overlaps(const Hunk &a, const Hunk &b) {
     if (a.base_start == a.base_end && b.base_start == b.base_end) {
         return a.base_start == b.base_start;
@@ -171,8 +164,6 @@ MergeResult merge_three_way_text(const std::string &base_text,
         return text;
     };
 
-    // One side's full text over [cluster_start, cluster_end): that side's
-    // hunks where it touched the range, base content everywhere it didn't.
     auto reconstruct_side = [&](Side side,
                                 const std::vector<Hunk> &all_hunks,
                                 const std::vector<size_t> &members,

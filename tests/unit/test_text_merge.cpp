@@ -104,9 +104,6 @@ static void test_both_sides_delete_everything_is_clean() {
     expect_clean(merge_three_way_text(base, "", ""), "", "both_delete_everything");
 }
 
-// Symmetry property: swapping ours/theirs must not change whether the
-// result is a conflict, since conflict-ness depends only on which base
-// regions each side touched, not on which side is "local" vs "remote".
 static void test_swap_symmetry_property() {
     std::mt19937 rng(12345);
     std::uniform_int_distribution<int> line_count(1, 6);

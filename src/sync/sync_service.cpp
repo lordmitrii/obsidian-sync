@@ -167,10 +167,6 @@ static size_t report_unresolved_conflicts(Database &db,
 // compared and transferred), never by re-reading the file from disk — a
 // re-read could see an edit the user made after the scan, which would wrongly
 // promote that edit to "base" without it ever having reached the remote.
-// A markdown file's base content is needed by a future three-way merge
-// (see ObjectStore), so every time a file's base state moves to a hash
-// this run actually wrote to local disk, keep that content around under
-// the same hash.
 static void remember_merge_base_if_markdown(const ObjectStore &object_store,
                                             const fs::path &local_root,
                                             const FileMeta &meta) {
@@ -240,12 +236,6 @@ static void update_base_state_after_apply(Database &db,
     }
 }
 
-// Attempts a three-way merge of a conflicted Markdown note: needs the
-// common ancestor's content (only kept around for markdown files, and
-// only once a prior run has actually gone through Upload/Download/merge
-// for it) plus the current local and remote content. Returns false - fall
-// back to a conflict copy - whenever a merge isn't possible or the merge
-// itself found an overlapping edit it can't resolve on its own.
 static bool try_merge_conflict(const std::string &path,
                                const fs::path &local_root,
                                const Manifest &base_manifest,
@@ -294,8 +284,6 @@ static bool try_merge_conflict(const std::string &path,
     return true;
 }
 
-// Returns true if the action was a Conflict that got resolved by an
-// automatic merge instead of a conflict copy.
 static bool apply_action(const ManifestAction &action,
                          const fs::path &local_root,
                          const Manifest &base_manifest,
@@ -379,10 +367,8 @@ struct ApplyOutcome {
 
 // Applies every action independently: a failing action is logged and
 // skipped rather than aborting the whole run, so one bad file doesn't block
-// every action sorted after it. Returns the paths that failed (so the
-// caller can leave their base state alone and retry them next run) and the
-// Conflict paths that were resolved by an automatic merge instead of a
-// conflict copy.
+// every action sorted after it. Returns the paths that failed, so the
+// caller can leave their base state alone and retry them next run.
 static ApplyOutcome apply_actions(const std::vector<ManifestAction> &actions,
                                   const fs::path &local_root,
                                   const Manifest &base_manifest,
