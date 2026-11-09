@@ -157,6 +157,10 @@ add_executable(in-memory-remote-backend-tests tests/unit/test_in_memory_remote_b
 target_link_libraries(in-memory-remote-backend-tests PRIVATE obsidian-sync-core)
 add_test(NAME in-memory-remote-backend-tests COMMAND in-memory-remote-backend-tests)
 
+add_executable(text-merge-tests tests/unit/test_text_merge.cpp)
+target_link_libraries(text-merge-tests PRIVATE obsidian-sync-core)
+add_test(NAME text-merge-tests COMMAND text-merge-tests)
+
 option(OBSIDIAN_SYNC_BUILD_FUZZERS "Build libFuzzer harnesses (requires Clang)" OFF)
 
 if(OBSIDIAN_SYNC_BUILD_FUZZERS)
