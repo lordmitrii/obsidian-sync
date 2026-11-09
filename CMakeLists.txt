@@ -35,6 +35,7 @@ add_library(obsidian-sync-core
     src/core/ignore_rules.cpp
     src/core/manifest.cpp
     src/core/manifest_action.cpp
+    src/core/object_store.cpp
     src/core/output.cpp
     src/core/scanner.cpp
     src/core/security.cpp
