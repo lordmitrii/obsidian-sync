@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ignore_rules.hpp"
+#include "text_merge.hpp"
 #include "vault_status.hpp"
 
 #include <cstddef>
@@ -48,6 +49,7 @@ struct Config {
     double max_delete_percent = 50.0;
     int trash_retention_days = 30;
     SyncConfigPreset sync_config = SyncConfigPreset::All;
+    OnConflictPolicy on_conflict = OnConflictPolicy::Copy;
 };
 
 Config parse_args(int argc, char *argv[]);

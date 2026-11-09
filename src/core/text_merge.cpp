@@ -1,7 +1,20 @@
 #include "text_merge.hpp"
 
 #include <algorithm>
+#include <stdexcept>
 #include <vector>
+
+OnConflictPolicy parse_on_conflict_policy(const std::string &text) {
+    if (text == "copy") {
+        return OnConflictPolicy::Copy;
+    }
+
+    if (text == "merge") {
+        return OnConflictPolicy::Merge;
+    }
+
+    throw std::runtime_error("--on-conflict must be one of: copy, merge");
+}
 
 namespace {
 

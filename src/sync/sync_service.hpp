@@ -1,7 +1,9 @@
 #pragma once
 
 #include "ignore_rules.hpp"
+#include "object_store.hpp"
 #include "remote_backend.hpp"
+#include "text_merge.hpp"
 
 #include <cstddef>
 #include <filesystem>
@@ -25,7 +27,8 @@ class SyncService {
                 int trash_retention_days = 30,
                 SyncConfigPreset sync_config = SyncConfigPreset::All,
                 bool quiet = false,
-                bool verbose = false);
+                bool verbose = false,
+                OnConflictPolicy on_conflict = OnConflictPolicy::Copy);
 
     RunStatus run_once();
 
@@ -39,4 +42,6 @@ class SyncService {
     SyncConfigPreset sync_config_;
     bool quiet_;
     bool verbose_;
+    OnConflictPolicy on_conflict_;
+    ObjectStore object_store_;
 };

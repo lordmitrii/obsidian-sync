@@ -202,7 +202,8 @@ int main(int argc, char *argv[]) {
                                              config.max_delete_percent};
             SyncService sync_service(config.local_root, config.state_db_path, backend, config.apply,
                                      delete_limits, config.trash_retention_days,
-                                     config.sync_config, config.quiet, config.verbose);
+                                     config.sync_config, config.quiet, config.verbose,
+                                     config.on_conflict);
 
             if (config.watch) {
                 run_watch_loop(config, sync_service);
@@ -230,7 +231,8 @@ int main(int argc, char *argv[]) {
                                              config.max_delete_percent};
             SyncService sync_service(config.local_root, config.state_db_path, backend, config.apply,
                                      delete_limits, config.trash_retention_days,
-                                     config.sync_config, config.quiet, config.verbose);
+                                     config.sync_config, config.quiet, config.verbose,
+                                     config.on_conflict);
 
             if (config.watch) {
                 run_watch_loop(config, sync_service);

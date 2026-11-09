@@ -2,6 +2,14 @@
 
 #include <string>
 
+// Copy (the default): keep today's behaviour, every conflict gets a
+// name.conflict-remote[.N] copy next to the note. Merge: attempt the
+// three-way merge below first and only fall back to a conflict copy when
+// the merge itself finds an overlapping, unresolvable edit.
+enum class OnConflictPolicy { Copy, Merge };
+
+OnConflictPolicy parse_on_conflict_policy(const std::string &text);
+
 enum class MergeStatus { Clean, Conflicted };
 
 struct MergeResult {

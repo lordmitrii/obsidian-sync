@@ -90,6 +90,9 @@ void print_usage() {
         "(default: 30, 0 disables cleanup)\n"
         "  --sync-config <preset>      How much of .obsidian to sync: none, core, or all "
         "(default: all)\n"
+        "  --on-conflict <policy>      How to handle a conflict on a Markdown note: copy (write a "
+        "conflict-remote copy) or merge (three-way merge, falling back to a copy only if the merge "
+        "overlaps) (default: copy)\n"
         "  --server-root <path>        Directory to serve\n"
         "  --server-host <host>        Address to bind (default: 127.0.0.1)\n"
         "  --server-port <port>        Port to bind (default: 38471)\n"
@@ -308,6 +311,12 @@ Config parse_args(int argc, char *argv[]) {
             }
 
             config.sync_config = parse_sync_config_preset(argv[++i]);
+        } else if (arg == "--on-conflict") {
+            if (i + 1 >= argc) {
+                throw std::runtime_error("--on-conflict requires copy or merge");
+            }
+
+            config.on_conflict = parse_on_conflict_policy(argv[++i]);
         } else {
             throw std::runtime_error("Unknown argument: " + arg);
         }
