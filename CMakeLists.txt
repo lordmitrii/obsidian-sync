@@ -38,6 +38,7 @@ add_library(obsidian-sync-core
     src/core/output.cpp
     src/core/scanner.cpp
     src/core/security.cpp
+    src/core/text_merge.cpp
     src/core/vault_status.cpp
     src/sync/http_remote_backend.cpp
     src/sync/local_remote_backend.cpp
