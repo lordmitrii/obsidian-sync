@@ -162,6 +162,10 @@ add_executable(text-merge-tests tests/unit/test_text_merge.cpp)
 target_link_libraries(text-merge-tests PRIVATE obsidian-sync-core)
 add_test(NAME text-merge-tests COMMAND text-merge-tests)
 
+add_executable(object-store-tests tests/unit/test_object_store.cpp)
+target_link_libraries(object-store-tests PRIVATE obsidian-sync-core)
+add_test(NAME object-store-tests COMMAND object-store-tests)
+
 option(OBSIDIAN_SYNC_BUILD_FUZZERS "Build libFuzzer harnesses (requires Clang)" OFF)
 
 if(OBSIDIAN_SYNC_BUILD_FUZZERS)
