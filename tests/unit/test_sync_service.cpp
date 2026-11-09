@@ -66,6 +66,13 @@ struct Fixture {
         SyncService service(local, state, backend, true, DeleteSafetyLimits{}, retention_days);
         return service.run_once();
     }
+
+    RunStatus sync_with_on_conflict(OnConflictPolicy on_conflict) {
+        LocalRemoteBackend backend(remote);
+        SyncService service(local, state, backend, true, DeleteSafetyLimits{}, 30,
+                            SyncConfigPreset::All, false, false, on_conflict);
+        return service.run_once();
+    }
 };
 
 // Simulates the user saving a local file mid-run: load_manifest() is called
@@ -292,6 +299,39 @@ static void test_repeated_conflict_reuses_matching_numbered_copy() {
            "repeated_conflict_does_not_pile_up_copies");
 }
 
+static void test_conflict_merges_independent_edits_automatically() {
+    Fixture f("merge-independent");
+    write_file(f.local / "a.md", "line1\nline2\nline3\n");
+    f.sync();
+
+    write_file(f.local / "a.md", "LOCAL\nline2\nline3\n");
+    write_file(f.remote / "a.md", "line1\nline2\nREMOTE\n");
+    RunStatus status = f.sync_with_on_conflict(OnConflictPolicy::Merge);
+
+    expect(status == RunStatus::Success, "merge_independent_edits_reports_success");
+    expect(read_file(f.local / "a.md") == "LOCAL\nline2\nREMOTE\n",
+          "merge_independent_edits_merges_both_sides");
+    expect(read_file(f.remote / "a.md") == "LOCAL\nline2\nREMOTE\n",
+          "merge_independent_edits_uploads_result");
+    expect(!fs::exists(f.local / "a.conflict-remote.md"),
+          "merge_independent_edits_leaves_no_conflict_copy");
+}
+
+static void test_conflict_falls_back_to_copy_when_merge_overlaps() {
+    Fixture f("merge-overlap");
+    write_file(f.local / "a.md", "line1\nline2\nline3\n");
+    f.sync();
+
+    write_file(f.local / "a.md", "LOCAL\nline2\nline3\n");
+    write_file(f.remote / "a.md", "REMOTE\nline2\nline3\n");
+    RunStatus status = f.sync_with_on_conflict(OnConflictPolicy::Merge);
+
+    expect(status == RunStatus::ConflictsPending, "merge_overlap_falls_back_to_conflicts_pending");
+    expect(read_file(f.local / "a.md") == "LOCAL\nline2\nline3\n", "merge_overlap_keeps_local");
+    expect(read_file(f.local / "a.conflict-remote.md") == "REMOTE\nline2\nline3\n",
+          "merge_overlap_saves_conflict_copy");
+}
+
 static void test_one_failed_action_does_not_block_the_others() {
     Fixture f("partial-failure");
     write_file(f.local / "good.md", "v1");
@@ -508,6 +548,8 @@ int main() {
     test_repeated_conflict_does_not_fail_forever();
     test_conflict_gets_a_numbered_copy_when_remote_changes_again();
     test_repeated_conflict_reuses_matching_numbered_copy();
+    test_conflict_merges_independent_edits_automatically();
+    test_conflict_falls_back_to_copy_when_merge_overlaps();
     test_one_failed_action_does_not_block_the_others();
     test_mass_delete_is_blocked_by_default();
     test_mass_delete_proceeds_with_force_deletes();

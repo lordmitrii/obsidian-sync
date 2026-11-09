@@ -138,6 +138,19 @@ static void test_sync_config_preset() {
            "sync_config_rejects_unknown_preset");
 }
 
+static void test_on_conflict_policy() {
+    Config defaults = parse({"--local-root", "/tmp", "--remote-root", "/tmp"});
+    expect(defaults.on_conflict == OnConflictPolicy::Copy, "on_conflict_defaults_to_copy");
+
+    Config merge =
+        parse({"--local-root", "/tmp", "--remote-root", "/tmp", "--on-conflict", "merge"});
+    expect(merge.on_conflict == OnConflictPolicy::Merge, "on_conflict_accepts_merge");
+
+    expect(throws_with({"--local-root", "/tmp", "--remote-root", "/tmp", "--on-conflict", "bogus"},
+                       "--on-conflict must be one of: copy, merge"),
+           "on_conflict_rejects_unknown_policy");
+}
+
 static void test_quiet() {
     Config defaults = parse({"--vault", "/tmp"});
     expect(!defaults.quiet, "quiet_defaults_to_false");
@@ -268,6 +281,7 @@ int main() {
     test_delete_safety_limits();
     test_trash_retention_days();
     test_sync_config_preset();
+    test_on_conflict_policy();
     test_quiet();
     test_status();
     test_conflicts();
