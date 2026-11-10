@@ -332,6 +332,36 @@ static void test_conflict_falls_back_to_copy_when_merge_overlaps() {
           "merge_overlap_saves_conflict_copy");
 }
 
+static void test_conflict_keep_local_overwrites_remote() {
+    Fixture f("keep-local");
+    write_file(f.local / "a.md", "base");
+    f.sync();
+
+    write_file(f.local / "a.md", "local edit");
+    write_file(f.remote / "a.md", "remote edit");
+    RunStatus status = f.sync_with_on_conflict(OnConflictPolicy::KeepLocal);
+
+    expect(status == RunStatus::Success, "keep_local_reports_success");
+    expect(read_file(f.local / "a.md") == "local edit", "keep_local_keeps_local_content");
+    expect(read_file(f.remote / "a.md") == "local edit", "keep_local_overwrites_remote");
+    expect(!fs::exists(f.local / "a.conflict-remote.md"), "keep_local_leaves_no_conflict_copy");
+}
+
+static void test_conflict_keep_remote_overwrites_local() {
+    Fixture f("keep-remote");
+    write_file(f.local / "a.md", "base");
+    f.sync();
+
+    write_file(f.local / "a.md", "local edit");
+    write_file(f.remote / "a.md", "remote edit");
+    RunStatus status = f.sync_with_on_conflict(OnConflictPolicy::KeepRemote);
+
+    expect(status == RunStatus::Success, "keep_remote_reports_success");
+    expect(read_file(f.local / "a.md") == "remote edit", "keep_remote_overwrites_local");
+    expect(read_file(f.remote / "a.md") == "remote edit", "keep_remote_keeps_remote_content");
+    expect(!fs::exists(f.local / "a.conflict-remote.md"), "keep_remote_leaves_no_conflict_copy");
+}
+
 static void test_one_failed_action_does_not_block_the_others() {
     Fixture f("partial-failure");
     write_file(f.local / "good.md", "v1");
@@ -550,6 +580,8 @@ int main() {
     test_repeated_conflict_reuses_matching_numbered_copy();
     test_conflict_merges_independent_edits_automatically();
     test_conflict_falls_back_to_copy_when_merge_overlaps();
+    test_conflict_keep_local_overwrites_remote();
+    test_conflict_keep_remote_overwrites_local();
     test_one_failed_action_does_not_block_the_others();
     test_mass_delete_is_blocked_by_default();
     test_mass_delete_proceeds_with_force_deletes();

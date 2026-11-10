@@ -146,8 +146,17 @@ static void test_on_conflict_policy() {
         parse({"--local-root", "/tmp", "--remote-root", "/tmp", "--on-conflict", "merge"});
     expect(merge.on_conflict == OnConflictPolicy::Merge, "on_conflict_accepts_merge");
 
+    Config keep_local =
+        parse({"--local-root", "/tmp", "--remote-root", "/tmp", "--on-conflict", "keep-local"});
+    expect(keep_local.on_conflict == OnConflictPolicy::KeepLocal, "on_conflict_accepts_keep_local");
+
+    Config keep_remote =
+        parse({"--local-root", "/tmp", "--remote-root", "/tmp", "--on-conflict", "keep-remote"});
+    expect(keep_remote.on_conflict == OnConflictPolicy::KeepRemote,
+           "on_conflict_accepts_keep_remote");
+
     expect(throws_with({"--local-root", "/tmp", "--remote-root", "/tmp", "--on-conflict", "bogus"},
-                       "--on-conflict must be one of: copy, merge"),
+                       "--on-conflict must be one of: copy, merge, keep-local, keep-remote"),
            "on_conflict_rejects_unknown_policy");
 }
 
