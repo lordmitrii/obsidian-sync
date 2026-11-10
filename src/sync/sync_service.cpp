@@ -334,6 +334,18 @@ static bool apply_action(const ManifestAction &action,
             return true;
         }
 
+        if (on_conflict == OnConflictPolicy::KeepLocal) {
+            remote_backend.upload(action.path, local_path);
+            std::cout << "Keeping local " << action.path << ", overwriting remote\n";
+            return true;
+        }
+
+        if (on_conflict == OnConflictPolicy::KeepRemote) {
+            remote_backend.download(action.path, local_path);
+            std::cout << "Keeping remote " << action.path << ", overwriting local\n";
+            return true;
+        }
+
         // Conflict copies from earlier runs are expected in --watch mode: base
         // state doesn't move forward on conflict, so the same conflict is
         // replanned every interval. Reuse any copy that already matches the

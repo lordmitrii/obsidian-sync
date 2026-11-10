@@ -13,7 +13,15 @@ OnConflictPolicy parse_on_conflict_policy(const std::string &text) {
         return OnConflictPolicy::Merge;
     }
 
-    throw std::runtime_error("--on-conflict must be one of: copy, merge");
+    if (text == "keep-local") {
+        return OnConflictPolicy::KeepLocal;
+    }
+
+    if (text == "keep-remote") {
+        return OnConflictPolicy::KeepRemote;
+    }
+
+    throw std::runtime_error("--on-conflict must be one of: copy, merge, keep-local, keep-remote");
 }
 
 namespace {

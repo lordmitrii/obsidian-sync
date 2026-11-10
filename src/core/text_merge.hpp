@@ -2,7 +2,7 @@
 
 #include <string>
 
-enum class OnConflictPolicy { Copy, Merge };
+enum class OnConflictPolicy { Copy, Merge, KeepLocal, KeepRemote };
 
 OnConflictPolicy parse_on_conflict_policy(const std::string &text);
 
