@@ -255,8 +255,54 @@ test_client_sync_and_state() {
     echo "PASS: HTTP sync applies and updates state"
 }
 
+test_version_history() {
+    local root="$TMP_ROOT/history-root"
+    mkdir -p "$root"
+    printf 'v1' >"$root/note.md"
+
+    start_server "$root" "$TMP_ROOT/history-server.log"
+
+    curl --max-time 5 -s -X PUT -H "Authorization: Bearer $TOKEN" \
+        --data-binary 'v2' "$BASE_URL/file?path=note.md" >/dev/null
+    curl --max-time 5 -s -X PUT -H "Authorization: Bearer $TOKEN" \
+        --data-binary 'v3' "$BASE_URL/file?path=note.md" >/dev/null
+
+    expect_http_code 401 "$BASE_URL/history?path=note.md"
+
+    local history_json
+    history_json="$(curl --max-time 5 -s -H "Authorization: Bearer $TOKEN" "$BASE_URL/history?path=note.md")"
+
+    local version_count
+    version_count="$(echo "$history_json" | grep -c '"hash"')"
+    [[ "$version_count" == "2" ]] || fail "expected 2 stored versions after two overwrites, got $version_count"
+
+    local oldest_hash
+    oldest_hash="$(echo "$history_json" | grep -o '"hash": *"[^"]*"' | tail -n1 |
+        sed -E 's/.*"([0-9a-f]+)"$/\1/')"
+
+    curl --max-time 5 -s -o /dev/null -w '%{http_code}' -X POST -d '' -H "Authorization: Bearer $TOKEN" \
+        "$BASE_URL/restore?path=note.md&hash=$oldest_hash" | grep -qx '204' ||
+        fail "restore should return 204"
+
+    assert_file_content "$root/note.md" "v1"
+
+    expect_http_code 404 -X POST -d '' -H "Authorization: Bearer $TOKEN" \
+        "$BASE_URL/restore?path=note.md&hash=not-a-real-hash"
+
+    curl --max-time 5 -s -o /dev/null -w '%{http_code}' -X DELETE -H "Authorization: Bearer $TOKEN" \
+        "$BASE_URL/file?path=note.md" | grep -qx '204' || fail "delete should return 204"
+
+    history_json="$(curl --max-time 5 -s -H "Authorization: Bearer $TOKEN" "$BASE_URL/history?path=note.md")"
+    version_count="$(echo "$history_json" | grep -c '"hash"')"
+    [[ "$version_count" == "4" ]] || fail "expected 4 stored versions after restore and delete, got $version_count"
+
+    stop_server
+    echo "PASS: version history records overwrites and deletes, and restore works"
+}
+
 test_server_requires_token_env
 test_auth_and_limits
 test_client_sync_and_state
+test_version_history
 
 echo "All HTTP smoke tests passed"
