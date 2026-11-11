@@ -45,6 +45,8 @@ int main(int argc, char *argv[]) {
                         DEFAULT_RATE_LIMIT_PER_MINUTE,
                         config.trusted_proxy,
                         config.trash_retention_days,
+                        config.max_versions_per_file,
+                        config.version_retention_days,
                         config.sync_config);
 
     } catch (const std::exception &e) {

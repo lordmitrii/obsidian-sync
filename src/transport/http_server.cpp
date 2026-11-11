@@ -8,6 +8,7 @@
 #include "scanner.hpp"
 #include "security.hpp"
 #include "time_utils.hpp"
+#include "version_history.hpp"
 
 #include <atomic>
 #include <chrono>
@@ -111,12 +112,15 @@ void run_http_server(const fs::path &server_root,
                      int rate_limit_per_minute,
                      const std::string &trusted_proxy,
                      int trash_retention_days,
+                     std::size_t max_versions_per_file,
+                     int version_retention_days,
                      SyncConfigPreset sync_config) {
     httplib::Server server;
     RateLimiter authenticated_limiter(rate_limit_per_minute);
     RateLimiter unauthenticated_limiter(rate_limit_per_minute);
     std::atomic<std::uint64_t> next_request_id{1};
     ServerMetrics metrics;
+    VersionHistory versions(server_root / ".versions");
 
     server.set_payload_max_length(max_upload_bytes);
     server.set_logger([&metrics](const httplib::Request &req, const httplib::Response &res) {
@@ -209,7 +213,8 @@ void run_http_server(const fs::path &server_root,
         res.set_content(body, "application/octet-stream");
     });
 
-    server.Put("/file", [server_root](const httplib::Request &req, httplib::Response &res) {
+    server.Put("/file", [server_root, &versions, max_versions_per_file,
+                         version_retention_days](const httplib::Request &req, httplib::Response &res) {
         std::string relative_path;
 
         if (!request_path(req, relative_path)) {
@@ -219,6 +224,8 @@ void run_http_server(const fs::path &server_root,
         }
 
         fs::path full_path = server_root / fs::path(relative_path);
+        std::string previous_content;
+        bool had_previous = fs::exists(full_path) && read_file(full_path, previous_content);
 
         if (!write_file(full_path, req.body)) {
             res.status = 500;
@@ -226,11 +233,17 @@ void run_http_server(const fs::path &server_root,
             return;
         }
 
+        if (had_previous) {
+            versions.record(relative_path, previous_content);
+            versions.prune_all(max_versions_per_file, version_retention_days);
+        }
+
         res.status = 204;
     });
 
-    server.Delete("/file", [server_root, trash_retention_days](const httplib::Request &req,
-                                                                httplib::Response &res) {
+    server.Delete("/file", [server_root, trash_retention_days, &versions, max_versions_per_file,
+                           version_retention_days](const httplib::Request &req,
+                                                   httplib::Response &res) {
         std::string relative_path;
 
         if (!request_path(req, relative_path)) {
@@ -248,6 +261,13 @@ void run_http_server(const fs::path &server_root,
         }
 
         if (fs::exists(full_path)) {
+            std::string content;
+
+            if (read_file(full_path, content)) {
+                versions.record(relative_path, content);
+                versions.prune_all(max_versions_per_file, version_retention_days);
+            }
+
             move_to_trash(full_path, server_root / ".trash", fs::path(relative_path));
             cleanup_trash(server_root / ".trash", trash_retention_days);
         }

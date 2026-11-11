@@ -88,6 +88,10 @@ void print_usage() {
         "(default: 50)\n"
         "  --trash-retention-days <n>  Permanently remove .trash contents older than this many days "
         "(default: 30, 0 disables cleanup)\n"
+        "  --max-versions-per-file <n> Keep at most this many stored versions per server file "
+        "(default: 20, 0 disables the limit)\n"
+        "  --version-retention-days <n> Discard stored file versions older than this many days "
+        "(default: 30, 0 disables cleanup)\n"
         "  --sync-config <preset>      How much of .obsidian to sync: none, core, or all "
         "(default: all)\n"
         "  --on-conflict <policy>      How to handle a conflict on a Markdown note: copy (write a "
@@ -305,6 +309,27 @@ Config parse_args(int argc, char *argv[]) {
             }
 
             config.trash_retention_days = parse_int_strict(argv[i + 1], "--trash-retention-days");
+            ++i;
+        } else if (arg == "--max-versions-per-file") {
+            if (i + 1 >= argc) {
+                throw std::runtime_error("--max-versions-per-file requires a number");
+            }
+
+            int value = parse_int_strict(argv[i + 1], "--max-versions-per-file");
+            ++i;
+
+            if (value < 0) {
+                throw std::runtime_error("--max-versions-per-file must not be negative");
+            }
+
+            config.max_versions_per_file = static_cast<std::size_t>(value);
+        } else if (arg == "--version-retention-days") {
+            if (i + 1 >= argc) {
+                throw std::runtime_error("--version-retention-days requires a number");
+            }
+
+            config.version_retention_days =
+                parse_int_strict(argv[i + 1], "--version-retention-days");
             ++i;
         } else if (arg == "--sync-config") {
             if (i + 1 >= argc) {

@@ -48,6 +48,8 @@ struct Config {
     size_t max_delete_count = 50;
     double max_delete_percent = 50.0;
     int trash_retention_days = 30;
+    std::size_t max_versions_per_file = 20;
+    int version_retention_days = 30;
     SyncConfigPreset sync_config = SyncConfigPreset::All;
     OnConflictPolicy on_conflict = OnConflictPolicy::Copy;
 };
