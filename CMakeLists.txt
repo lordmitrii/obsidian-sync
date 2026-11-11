@@ -42,6 +42,7 @@ add_library(obsidian-sync-core
     src/core/text_merge.cpp
     src/core/time_utils.cpp
     src/core/vault_status.cpp
+    src/core/version_history.cpp
     src/sync/http_remote_backend.cpp
     src/sync/local_remote_backend.cpp
     src/sync/sync_plan.cpp
@@ -170,6 +171,10 @@ add_test(NAME object-store-tests COMMAND object-store-tests)
 add_executable(time-utils-tests tests/unit/test_time_utils.cpp)
 target_link_libraries(time-utils-tests PRIVATE obsidian-sync-core)
 add_test(NAME time-utils-tests COMMAND time-utils-tests)
+
+add_executable(version-history-tests tests/unit/test_version_history.cpp)
+target_link_libraries(version-history-tests PRIVATE obsidian-sync-core)
+add_test(NAME version-history-tests COMMAND version-history-tests)
 
 option(OBSIDIAN_SYNC_BUILD_FUZZERS "Build libFuzzer harnesses (requires Clang)" OFF)
 
