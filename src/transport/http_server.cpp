@@ -7,10 +7,10 @@
 #include "rate_limiter.hpp"
 #include "scanner.hpp"
 #include "security.hpp"
+#include "time_utils.hpp"
 
 #include <atomic>
 #include <chrono>
-#include <ctime>
 #include <filesystem>
 #include <fstream>
 #include <httplib.h>
@@ -70,20 +70,6 @@ static std::string rate_limit_key(const httplib::Request &req, const std::string
 
 static const char *kRequestIdHeader = "X-Osync-Request-Id";
 static const char *kRequestStartHeader = "X-Osync-Request-Start-Ns";
-
-static std::string current_timestamp_iso8601() {
-    auto now = std::chrono::system_clock::now();
-    std::time_t now_time = std::chrono::system_clock::to_time_t(now);
-    std::tm utc_tm{};
-#if defined(_WIN32)
-    gmtime_s(&utc_tm, &now_time);
-#else
-    gmtime_r(&now_time, &utc_tm);
-#endif
-    char buffer[32];
-    std::strftime(buffer, sizeof(buffer), "%Y-%m-%dT%H:%M:%SZ", &utc_tm);
-    return buffer;
-}
 
 static void stamp_request_metadata(const httplib::Request &req, std::atomic<std::uint64_t> &next_request_id) {
     auto &mutable_req = const_cast<httplib::Request &>(req);
