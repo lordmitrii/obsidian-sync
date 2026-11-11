@@ -275,6 +275,64 @@ void run_http_server(const fs::path &server_root,
         res.status = 204;
     });
 
+    server.Get("/history", [&versions](const httplib::Request &req, httplib::Response &res) {
+        std::string relative_path;
+
+        if (!request_path(req, relative_path)) {
+            res.status = 400;
+            res.set_content("Invalid path\n", "text/plain");
+            return;
+        }
+
+        nlohmann::json j = nlohmann::json::array();
+
+        for (const auto &version : versions.list(relative_path)) {
+            j.push_back({{"hash", version.hash}, {"timestamp", version.timestamp}, {"size", version.size}});
+        }
+
+        res.set_content(j.dump(2), "application/json");
+    });
+
+    server.Post("/restore", [server_root, &versions](const httplib::Request &req,
+                                                      httplib::Response &res) {
+        std::string relative_path;
+
+        if (!request_path(req, relative_path)) {
+            res.status = 400;
+            res.set_content("Invalid path\n", "text/plain");
+            return;
+        }
+
+        if (!req.has_param("hash")) {
+            res.status = 400;
+            res.set_content("Missing hash parameter\n", "text/plain");
+            return;
+        }
+
+        auto restored_content = versions.content(req.get_param_value("hash"));
+
+        if (!restored_content) {
+            res.status = 404;
+            res.set_content("Version not found\n", "text/plain");
+            return;
+        }
+
+        fs::path full_path = server_root / fs::path(relative_path);
+        std::string current_content;
+
+        if (fs::exists(full_path) && read_file(full_path, current_content)) {
+            versions.record(relative_path, current_content);
+        }
+
+        if (!write_file(full_path, *restored_content)) {
+            res.status = 500;
+            res.set_content("Failed to write file\n", "text/plain");
+            return;
+        }
+
+        res.status = 204;
+    });
+
     std::cout << "Serving " << server_root << " on http://" << host << ":" << port << "\n";
     std::cout << "Max upload size: " << max_upload_bytes << " bytes\n";
     std::cout << "Rate limit: " << rate_limit_per_minute << " requests/minute\n";
