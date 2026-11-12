@@ -106,3 +106,31 @@ void print_text_conflicted_notes(const std::vector<ConflictDetail> &notes) {
         std::cout << "\n";
     }
 }
+
+json file_versions_to_json(const std::vector<FileVersion> &versions) {
+    json root;
+    root["versions"] = json::array();
+
+    for (const auto &version : versions) {
+        root["versions"].push_back(
+            {{"hash", version.hash}, {"timestamp", version.timestamp}, {"size", version.size}});
+    }
+
+    return root;
+}
+
+void print_json_file_versions(const std::vector<FileVersion> &versions) {
+    std::cout << file_versions_to_json(versions).dump(2) << "\n";
+}
+
+void print_text_file_versions(const std::vector<FileVersion> &versions) {
+    if (versions.empty()) {
+        std::cout << "No stored versions\n";
+        return;
+    }
+
+    for (const auto &version : versions) {
+        std::cout << version.timestamp << "  " << version.hash << "  " << version.size
+                  << " bytes\n";
+    }
+}

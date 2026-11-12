@@ -27,6 +27,11 @@ struct Config {
     bool conflicts_output = false;
     std::string resolve_conflict_path;
     ConflictResolution conflict_resolution = ConflictResolution::KeepLocal;
+    std::string history_path;
+    std::string restore_path;
+    std::string restore_hash;
+    std::string restore_at;
+    bool prune_remote = false;
     std::filesystem::path server_root;
     std::string server_host = "127.0.0.1";
     int server_port = 38471;

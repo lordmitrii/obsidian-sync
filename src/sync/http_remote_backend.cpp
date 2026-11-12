@@ -8,6 +8,7 @@
 #include <curl/curl.h>
 #include <filesystem>
 #include <fstream>
+#include <nlohmann/json.hpp>
 #include <sstream>
 #include <stdexcept>
 #include <utility>
@@ -60,6 +61,39 @@ static std::string file_url(const std::string &remote_url, const std::string &pa
 
 static std::string manifest_url(const std::string &remote_url) {
     return trim_trailing_slashes(remote_url) + "/manifest";
+}
+
+static std::string history_url(const std::string &remote_url, const std::string &path) {
+    CURL *curl = curl_easy_init();
+
+    if (curl == nullptr) {
+        throw std::runtime_error("Failed to initialize curl");
+    }
+
+    std::string escaped_path = escape_query_value(curl, path);
+    curl_easy_cleanup(curl);
+
+    return trim_trailing_slashes(remote_url) + "/history?path=" + escaped_path;
+}
+
+static std::string restore_url(const std::string &remote_url, const std::string &path,
+                               const std::string &hash) {
+    CURL *curl = curl_easy_init();
+
+    if (curl == nullptr) {
+        throw std::runtime_error("Failed to initialize curl");
+    }
+
+    std::string escaped_path = escape_query_value(curl, path);
+    std::string escaped_hash = escape_query_value(curl, hash);
+    curl_easy_cleanup(curl);
+
+    return trim_trailing_slashes(remote_url) + "/restore?path=" + escaped_path +
+          "&hash=" + escaped_hash;
+}
+
+static std::string prune_url(const std::string &remote_url) {
+    return trim_trailing_slashes(remote_url) + "/prune";
 }
 
 static HttpResponse request(const std::string &method,
@@ -116,6 +150,9 @@ static HttpResponse request(const std::string &method,
         curl_easy_setopt(curl, CURLOPT_READDATA, &read_state);
     } else if (method == "DELETE") {
         curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, "DELETE");
+    } else if (method == "POST") {
+        curl_easy_setopt(curl, CURLOPT_POST, 1L);
+        curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, 0L);
     }
 
     CURLcode code = curl_easy_perform(curl);
@@ -230,4 +267,49 @@ void HttpRemoteBackend::save_conflict_copy(const std::string &path,
     }
 
     write_file(local_conflict_path, response.body, false);
+}
+
+std::vector<FileVersion> HttpRemoteBackend::history(const std::string &path) const {
+    HttpResponse response =
+        request("GET", history_url(remote_url_, path), bearer_token_, cacert_path_);
+
+    if (response.status != 200) {
+        throw std::runtime_error("Failed to fetch version history for " + path + ": HTTP " +
+                                 std::to_string(response.status));
+    }
+
+    nlohmann::json j = nlohmann::json::parse(response.body);
+    std::vector<FileVersion> versions;
+
+    for (const auto &item : j) {
+        FileVersion version;
+        version.hash = item.at("hash").get<std::string>();
+        version.timestamp = item.at("timestamp").get<std::string>();
+        version.size = item.at("size").get<std::size_t>();
+        versions.push_back(std::move(version));
+    }
+
+    return versions;
+}
+
+void HttpRemoteBackend::restore_version(const std::string &path, const std::string &hash) const {
+    HttpResponse response =
+        request("POST", restore_url(remote_url_, path, hash), bearer_token_, cacert_path_);
+
+    if (response.status == 404) {
+        throw std::runtime_error("No stored version " + hash + " for " + path);
+    }
+
+    if (response.status < 200 || response.status >= 300) {
+        throw std::runtime_error("Restore failed for " + path + ": HTTP " +
+                                 std::to_string(response.status));
+    }
+}
+
+void HttpRemoteBackend::prune() const {
+    HttpResponse response = request("POST", prune_url(remote_url_), bearer_token_, cacert_path_);
+
+    if (response.status < 200 || response.status >= 300) {
+        throw std::runtime_error("Prune failed: HTTP " + std::to_string(response.status));
+    }
 }

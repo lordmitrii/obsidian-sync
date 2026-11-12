@@ -183,6 +183,65 @@ int main(int argc, char *argv[]) {
             return 0;
         }
 
+        if (!config.history_path.empty() || !config.restore_path.empty() || config.prune_remote) {
+            if (!config.insecure_http && !is_secure_remote_url(config.remote_url)) {
+                std::cerr << "Refusing plain HTTP to a non-loopback host (would send the bearer "
+                             "token in clear text); use https:// or pass --insecure-http\n";
+                return 1;
+            }
+
+            std::string token = load_required_bearer_token();
+            HttpRemoteBackend backend(config.remote_url, token, DEFAULT_MAX_UPLOAD_BYTES,
+                                      config.cacert_path);
+
+            if (!config.history_path.empty()) {
+                auto versions = backend.history(config.history_path);
+
+                if (config.json_output) {
+                    print_json_file_versions(versions);
+                } else {
+                    print_text_file_versions(versions);
+                }
+
+                return 0;
+            }
+
+            if (!config.restore_path.empty()) {
+                std::string hash = config.restore_hash;
+
+                if (hash.empty()) {
+                    auto versions = backend.history(config.restore_path);
+                    auto found = std::find_if(
+                        versions.begin(), versions.end(),
+                        [&](const FileVersion &v) { return v.timestamp <= config.restore_at; });
+
+                    if (found == versions.end()) {
+                        std::cerr << "No stored version of " << config.restore_path
+                                  << " at or before " << config.restore_at << "\n";
+                        return 1;
+                    }
+
+                    hash = found->hash;
+                }
+
+                backend.restore_version(config.restore_path, hash);
+
+                if (!config.quiet) {
+                    std::cout << "Restored " << config.restore_path << " to " << hash << "\n";
+                }
+
+                return 0;
+            }
+
+            backend.prune();
+
+            if (!config.quiet) {
+                std::cout << "Pruned stored file versions\n";
+            }
+
+            return 0;
+        }
+
         if (!config.local_root.empty() && !config.remote_url.empty()) {
             if (!fs::exists(config.local_root) || !fs::is_directory(config.local_root)) {
                 std::cerr << "Local root does not exist or is not a directory\n";

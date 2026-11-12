@@ -7,6 +7,7 @@
 #include "filemeta.hpp"
 #include "sync_plan.hpp"
 #include "vault_status.hpp"
+#include "version_history.hpp"
 
 nlohmann::json manifest_to_json(const std::vector<FileMeta> &files);
 void print_json_manifest(const std::vector<FileMeta> &files);
@@ -34,3 +35,7 @@ struct ConflictDetail {
 nlohmann::json conflicted_notes_to_json(const std::vector<ConflictDetail> &notes);
 void print_json_conflicted_notes(const std::vector<ConflictDetail> &notes);
 void print_text_conflicted_notes(const std::vector<ConflictDetail> &notes);
+
+nlohmann::json file_versions_to_json(const std::vector<FileVersion> &versions);
+void print_json_file_versions(const std::vector<FileVersion> &versions);
+void print_text_file_versions(const std::vector<FileVersion> &versions);

@@ -333,6 +333,12 @@ void run_http_server(const fs::path &server_root,
         res.status = 204;
     });
 
+    server.Post("/prune", [&versions, max_versions_per_file,
+                          version_retention_days](const httplib::Request &, httplib::Response &res) {
+        versions.prune_all(max_versions_per_file, version_retention_days);
+        res.status = 204;
+    });
+
     std::cout << "Serving " << server_root << " on http://" << host << ":" << port << "\n";
     std::cout << "Max upload size: " << max_upload_bytes << " bytes\n";
     std::cout << "Rate limit: " << rate_limit_per_minute << " requests/minute\n";

@@ -1,9 +1,11 @@
 #pragma once
 
 #include "remote_backend.hpp"
+#include "version_history.hpp"
 
 #include <cstddef>
 #include <string>
+#include <vector>
 
 class HttpRemoteBackend : public RemoteBackend {
   public:
@@ -18,6 +20,10 @@ class HttpRemoteBackend : public RemoteBackend {
     void delete_remote(const std::string &path) override;
     void save_conflict_copy(const std::string &path,
                             const std::filesystem::path &local_conflict_path) override;
+
+    std::vector<FileVersion> history(const std::string &path) const;
+    void restore_version(const std::string &path, const std::string &hash) const;
+    void prune() const;
 
   private:
     std::string remote_url_;

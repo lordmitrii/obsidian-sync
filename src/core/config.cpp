@@ -48,6 +48,9 @@ void print_usage() {
         "  obsidian-sync-client --vault <path> --status [--json]\n"
         "  obsidian-sync-client conflicts list --vault <path> [--json]\n"
         "  obsidian-sync-client conflicts resolve <note> --vault <path> --keep local|remote|merged\n"
+        "  obsidian-sync-client history <path> --remote-url <url> [--json]\n"
+        "  obsidian-sync-client restore <path> --remote-url <url> (--hash <hash> | --at <time>)\n"
+        "  obsidian-sync-client prune --remote-url <url>\n"
         "  obsidian-sync-client --compare-manifests <a> <b>\n"
         "  obsidian-sync-client --local-root <path> (--remote-root <path> | --remote-url <url>)\n"
         "                        [--state <path>] [--apply] [--watch --interval <seconds>]\n"
@@ -71,6 +74,9 @@ void print_usage() {
         "as 'conflicts resolve <note>')\n"
         "  --keep <local|remote|merged> Which copy --resolve-conflict should keep (merged: the "
         "note is already hand-merged, just clear the conflict)\n"
+        "  --hash <hash>               Which stored version 'restore' should roll back to\n"
+        "  --at <time>                 Roll back 'restore' to the newest stored version at or "
+        "before this ISO-8601 time\n"
         "  --compare-manifests <a> <b> Diff two saved manifests\n"
         "  --local-root <path>         Local vault to sync\n"
         "  --remote-root <path>        Remote directory to sync against (for testing)\n"
@@ -132,6 +138,23 @@ Config parse_args(int argc, char *argv[]) {
             throw std::runtime_error("Unknown conflicts subcommand: " + subcommand +
                                      " (expected list or resolve)");
         }
+    } else if (argc > 1 && std::string(argv[1]) == "history") {
+        if (argc < 3 || std::string(argv[2]).rfind("--", 0) == 0) {
+            throw std::runtime_error("history requires a path");
+        }
+
+        config.history_path = argv[2];
+        start_index = 3;
+    } else if (argc > 1 && std::string(argv[1]) == "restore") {
+        if (argc < 3 || std::string(argv[2]).rfind("--", 0) == 0) {
+            throw std::runtime_error("restore requires a path");
+        }
+
+        config.restore_path = argv[2];
+        start_index = 3;
+    } else if (argc > 1 && std::string(argv[1]) == "prune") {
+        config.prune_remote = true;
+        start_index = 2;
     }
 
     for (int i = start_index; i < argc; ++i) {
@@ -182,6 +205,18 @@ Config parse_args(int argc, char *argv[]) {
 
             config.conflict_resolution = parse_conflict_resolution(argv[++i]);
             keep_specified = true;
+        } else if (arg == "--hash") {
+            if (i + 1 >= argc) {
+                throw std::runtime_error("--hash requires a version hash");
+            }
+
+            config.restore_hash = argv[++i];
+        } else if (arg == "--at") {
+            if (i + 1 >= argc) {
+                throw std::runtime_error("--at requires a timestamp");
+            }
+
+            config.restore_at = argv[++i];
         } else if (arg == "--manifest-file") {
             if (i + 1 >= argc) {
                 throw std::runtime_error("--manifest-file requires a path");
@@ -356,7 +391,22 @@ Config parse_args(int argc, char *argv[]) {
         throw std::runtime_error("--resolve-conflict requires --keep local|remote|merged");
     }
 
-    if (!config.compare_manifests && config.vault_path.empty() && config.server_root.empty() &&
+    if (!config.restore_path.empty() && config.restore_hash.empty() && config.restore_at.empty()) {
+        throw std::runtime_error("restore requires --hash <hash> or --at <timestamp>");
+    }
+
+    if (!config.restore_path.empty() && !config.restore_hash.empty() &&
+        !config.restore_at.empty()) {
+        throw std::runtime_error("restore takes --hash or --at, not both");
+    }
+
+    if ((!config.history_path.empty() || !config.restore_path.empty() || config.prune_remote) &&
+        config.remote_url.empty()) {
+        throw std::runtime_error("history, restore, and prune require --remote-url");
+    }
+
+    if (!config.compare_manifests && config.history_path.empty() && config.restore_path.empty() &&
+        !config.prune_remote && config.vault_path.empty() && config.server_root.empty() &&
         (config.local_root.empty() || (config.remote_root.empty() && config.remote_url.empty()))) {
         throw std::runtime_error("Missing required argument: --vault, --server-root, "
                                  "--compare-manifests, or --local-root with --remote-root/--remote-url");
