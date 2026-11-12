@@ -300,9 +300,45 @@ test_version_history() {
     echo "PASS: version history records overwrites and deletes, and restore works"
 }
 
+test_client_version_commands() {
+    local root="$TMP_ROOT/client-history-root"
+    mkdir -p "$root"
+    printf 'v1' >"$root/note.md"
+
+    start_server "$root" "$TMP_ROOT/client-history-server.log"
+
+    curl --max-time 5 -s -X PUT -H "Authorization: Bearer $TOKEN" \
+        --data-binary 'v2' "$BASE_URL/file?path=note.md" >/dev/null
+    curl --max-time 5 -s -X PUT -H "Authorization: Bearer $TOKEN" \
+        --data-binary 'v3' "$BASE_URL/file?path=note.md" >/dev/null
+
+    local history_text
+    history_text="$(OBSIDIAN_SYNC_TOKEN="$TOKEN" "$CLIENT_BINARY" history note.md \
+        --remote-url "$BASE_URL" --insecure-http)"
+    [[ "$(echo "$history_text" | wc -l)" == "2" ]] ||
+        fail "expected 2 lines from 'history', got: $history_text"
+
+    local oldest_hash
+    oldest_hash="$(echo "$history_text" | tail -n1 | awk '{print $2}')"
+
+    OBSIDIAN_SYNC_TOKEN="$TOKEN" "$CLIENT_BINARY" restore note.md --remote-url "$BASE_URL" \
+        --insecure-http --hash "$oldest_hash" >/dev/null
+    assert_file_content "$root/note.md" "v1"
+
+    run_expect_exit 1 env OBSIDIAN_SYNC_TOKEN="$TOKEN" "$CLIENT_BINARY" restore note.md \
+        --remote-url "$BASE_URL" --insecure-http --at "1970-01-01T00:00:00Z"
+
+    OBSIDIAN_SYNC_TOKEN="$TOKEN" "$CLIENT_BINARY" prune --remote-url "$BASE_URL" \
+        --insecure-http >/dev/null
+
+    stop_server
+    echo "PASS: client history, restore, and prune commands work against a real server"
+}
+
 test_server_requires_token_env
 test_auth_and_limits
 test_client_sync_and_state
 test_version_history
+test_client_version_commands
 
 echo "All HTTP smoke tests passed"
