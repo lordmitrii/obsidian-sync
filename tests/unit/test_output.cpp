@@ -61,6 +61,19 @@ static void test_conflicted_notes_to_json() {
     expect(root["conflicts"][1]["local_hash"] == "", "second_conflict_has_no_recorded_hash");
 }
 
+static void test_file_versions_to_json() {
+    const auto empty = file_versions_to_json({});
+    expect(empty["versions"].is_array() && empty["versions"].empty(), "empty_versions_array");
+
+    const auto root = file_versions_to_json(
+        {{"hash1", "2026-01-01T00:00:00Z", 10}, {"hash2", "2026-01-02T00:00:00Z", 20}});
+    expect(root["versions"].size() == 2, "two_versions");
+    expect(root["versions"][0]["hash"] == "hash1", "first_version_hash");
+    expect(root["versions"][0]["timestamp"] == "2026-01-01T00:00:00Z", "first_version_timestamp");
+    expect(root["versions"][0]["size"] == 10, "first_version_size");
+    expect(root["versions"][1]["hash"] == "hash2", "second_version_hash");
+}
+
 static void test_action_names() {
     expect(manifest_action_to_string(ManifestActionType::Upload) == "upload", "upload_name");
     expect(manifest_action_to_string(ManifestActionType::Download) == "download", "download_name");
@@ -78,6 +91,7 @@ int main() {
     test_manifest_to_json_keeps_order();
     test_vault_status_to_json();
     test_conflicted_notes_to_json();
+    test_file_versions_to_json();
     test_action_names();
 
     if (failures == 0) {
