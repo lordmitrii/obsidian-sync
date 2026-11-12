@@ -205,6 +205,47 @@ static void test_conflicts_subcommands() {
            "conflicts_resolve_requires_note_path");
 }
 
+static void test_history_subcommand() {
+    Config history = parse({"history", "note.md", "--remote-url", "https://example.org"});
+    expect(history.history_path == "note.md", "history_subcommand_captures_path");
+    expect(history.remote_url == "https://example.org", "history_subcommand_still_parses_flags");
+
+    expect(throws_with({"history"}, "history requires a path"), "history_requires_path");
+    expect(throws_with({"history", "--remote-url", "https://example.org"},
+                       "history requires a path"),
+           "history_rejects_flag_in_place_of_path");
+    expect(throws_with({"history", "note.md"}, "history, restore, and prune require --remote-url"),
+           "history_requires_remote_url");
+}
+
+static void test_restore_subcommand() {
+    Config by_hash = parse(
+        {"restore", "note.md", "--remote-url", "https://example.org", "--hash", "abc123"});
+    expect(by_hash.restore_path == "note.md", "restore_subcommand_captures_path");
+    expect(by_hash.restore_hash == "abc123", "restore_subcommand_parses_hash");
+
+    Config by_time = parse({"restore", "note.md", "--remote-url", "https://example.org", "--at",
+                            "2026-01-01T00:00:00Z"});
+    expect(by_time.restore_at == "2026-01-01T00:00:00Z", "restore_subcommand_parses_at");
+
+    expect(throws_with({"restore"}, "restore requires a path"), "restore_requires_path");
+    expect(throws_with({"restore", "note.md", "--remote-url", "https://example.org"},
+                       "restore requires --hash <hash> or --at <timestamp>"),
+           "restore_requires_hash_or_at");
+    expect(throws_with({"restore", "note.md", "--remote-url", "https://example.org", "--hash",
+                       "abc", "--at", "2026-01-01T00:00:00Z"},
+                       "restore takes --hash or --at, not both"),
+           "restore_rejects_both_hash_and_at");
+}
+
+static void test_prune_subcommand() {
+    Config prune = parse({"prune", "--remote-url", "https://example.org"});
+    expect(prune.prune_remote, "prune_subcommand_sets_prune_remote");
+
+    expect(throws_with({"prune"}, "history, restore, and prune require --remote-url"),
+           "prune_requires_remote_url");
+}
+
 static void test_compare_manifests() {
     Config config = parse({"--compare-manifests", "a.json", "b.json"});
     expect(config.compare_manifests, "compare_manifests_flag_is_set");
@@ -295,6 +336,9 @@ int main() {
     test_status();
     test_conflicts();
     test_conflicts_subcommands();
+    test_history_subcommand();
+    test_restore_subcommand();
+    test_prune_subcommand();
     test_compare_manifests();
     test_watch_requires_apply();
     test_resolve_conflict_requires_keep();
