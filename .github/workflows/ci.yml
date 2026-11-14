@@ -7,6 +7,17 @@ on:
   pull_request:
 
 jobs:
+  format:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install clang-format
+        run: pip install clang-format==23.1.5
+
+      - name: Check formatting
+        run: find src tests -name '*.cpp' -o -name '*.hpp' | xargs clang-format --dry-run -Werror
+
   test:
     strategy:
       matrix:
