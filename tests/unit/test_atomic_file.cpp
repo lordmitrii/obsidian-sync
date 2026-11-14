@@ -130,6 +130,42 @@ static void test_move_to_trash_numbers_on_collision() {
     fs::remove_all(dir);
 }
 
+static void test_atomic_file_writer_commits_streamed_chunks() {
+    const auto dir = fresh_dir("writer-commit");
+    AtomicFileWriter writer(dir / "note.md");
+    writer.write("hel", 3);
+    writer.write("lo", 2);
+    writer.commit();
+
+    expect(read_file(dir / "note.md") == "hello", "writer_commit_joins_chunks");
+    expect(!has_leftover_temp_files(dir), "writer_commit_leaves_no_temp_file");
+    fs::remove_all(dir);
+}
+
+static void test_atomic_file_writer_creates_parent_directories() {
+    const auto dir = fresh_dir("writer-nested");
+    AtomicFileWriter writer(dir / "deep/nested/note.md");
+    writer.write("hi", 2);
+    writer.commit();
+
+    expect(read_file(dir / "deep/nested/note.md") == "hi", "writer_commit_creates_parent_dirs");
+    fs::remove_all(dir);
+}
+
+static void test_atomic_file_writer_discards_uncommitted_content() {
+    const auto dir = fresh_dir("writer-discard");
+    write_file(dir / "note.md", "original");
+
+    {
+        AtomicFileWriter writer(dir / "note.md");
+        writer.write("overwritten", 11);
+    }
+
+    expect(read_file(dir / "note.md") == "original", "writer_discard_leaves_destination_untouched");
+    expect(!has_leftover_temp_files(dir), "writer_discard_leaves_no_temp_file");
+    fs::remove_all(dir);
+}
+
 static void age_file(const fs::path &path, int days_old) {
     auto old_time = fs::file_time_type::clock::now() - std::chrono::hours(24 * days_old);
     fs::last_write_time(path, old_time);
@@ -177,6 +213,9 @@ int main() {
     test_write_fully_replaces_shorter_content();
     test_copy_overwrites_destination();
     test_copy_creates_parent_directories();
+    test_atomic_file_writer_commits_streamed_chunks();
+    test_atomic_file_writer_creates_parent_directories();
+    test_atomic_file_writer_discards_uncommitted_content();
     test_move_to_trash_moves_file();
     test_move_to_trash_keeps_relative_structure();
     test_move_to_trash_numbers_on_collision();

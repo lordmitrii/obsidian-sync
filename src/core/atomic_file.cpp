@@ -16,33 +16,50 @@ static fs::path temp_path_for(const fs::path &destination) {
 }
 
 void atomic_write_file(const fs::path &path, const std::string &body) {
-    fs::create_directories(path.parent_path());
-    fs::path temp_path = temp_path_for(path);
+    AtomicFileWriter writer(path);
+    writer.write(body.data(), body.size());
+    writer.commit();
+}
 
-    {
-        std::ofstream out(temp_path, std::ios::binary);
+AtomicFileWriter::AtomicFileWriter(fs::path destination) : destination_(std::move(destination)) {
+    fs::create_directories(destination_.parent_path());
+    temp_path_ = temp_path_for(destination_);
+    out_.open(temp_path_, std::ios::binary);
 
-        if (!out) {
-            throw std::runtime_error("Failed to open temp file for writing: " + temp_path.string());
-        }
-
-        out.write(body.data(), static_cast<std::streamsize>(body.size()));
-
-        if (!out.good()) {
-            out.close();
-            fs::remove(temp_path);
-            throw std::runtime_error("Failed to write temp file: " + temp_path.string());
-        }
+    if (!out_) {
+        throw std::runtime_error("Failed to open temp file for writing: " + temp_path_.string());
     }
+}
+
+AtomicFileWriter::~AtomicFileWriter() {
+    if (!committed_) {
+        out_.close();
+        std::error_code ec;
+        fs::remove(temp_path_, ec);
+    }
+}
+
+void AtomicFileWriter::write(const char *data, std::size_t length) {
+    out_.write(data, static_cast<std::streamsize>(length));
+
+    if (!out_.good()) {
+        throw std::runtime_error("Failed to write temp file: " + temp_path_.string());
+    }
+}
+
+void AtomicFileWriter::commit() {
+    out_.close();
 
     std::error_code ec;
-    fs::rename(temp_path, path, ec);
+    fs::rename(temp_path_, destination_, ec);
 
     if (ec) {
-        fs::remove(temp_path);
-        throw std::runtime_error("Failed to move temp file into place: " + path.string() + ": " +
-                                 ec.message());
+        fs::remove(temp_path_);
+        throw std::runtime_error("Failed to move temp file into place: " + destination_.string() +
+                                 ": " + ec.message());
     }
+
+    committed_ = true;
 }
 
 void atomic_copy_file(const fs::path &source, const fs::path &destination) {

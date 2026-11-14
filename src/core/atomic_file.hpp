@@ -1,6 +1,8 @@
 #pragma once
 
+#include <cstddef>
 #include <filesystem>
+#include <fstream>
 #include <string>
 
 // Writes `body` to `path` without ever leaving a partially-written file in
@@ -8,6 +10,31 @@
 // then renamed over the destination. Throws std::runtime_error on failure;
 // `path` is left untouched if the write fails.
 void atomic_write_file(const std::filesystem::path &path, const std::string &body);
+
+// Same guarantee as atomic_write_file, but for content arriving in chunks
+// (a streamed HTTP request or response body) instead of one in-memory
+// string. Bytes are appended to a temp file next to `destination` via
+// successive write() calls; the temp file is only renamed into place by an
+// explicit commit(), and is discarded if the writer is destroyed first
+// (an error partway through a stream, or a caller that decides not to
+// keep what arrived).
+class AtomicFileWriter {
+  public:
+    explicit AtomicFileWriter(std::filesystem::path destination);
+    ~AtomicFileWriter();
+
+    AtomicFileWriter(const AtomicFileWriter &) = delete;
+    AtomicFileWriter &operator=(const AtomicFileWriter &) = delete;
+
+    void write(const char *data, std::size_t length);
+    void commit();
+
+  private:
+    std::filesystem::path destination_;
+    std::filesystem::path temp_path_;
+    std::ofstream out_;
+    bool committed_ = false;
+};
 
 // Copies `source` to `destination` the same way: via a temporary file in
 // destination's directory, renamed into place once the copy succeeds.
