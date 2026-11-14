@@ -111,11 +111,10 @@ static void test_record_and_resolve_conflict() {
     expect(unresolved.size() == 1, "conflict_recorded");
     expect(unresolved.size() == 1 && unresolved[0].path == "a.md", "conflict_path");
     expect(unresolved.size() == 1 && unresolved[0].local_hash == "local-hash",
-          "conflict_local_hash");
+           "conflict_local_hash");
     expect(unresolved.size() == 1 && unresolved[0].remote_hash == "remote-hash",
-          "conflict_remote_hash");
-    expect(unresolved.size() == 1 && unresolved[0].detected_time == 1000,
-          "conflict_detected_time");
+           "conflict_remote_hash");
+    expect(unresolved.size() == 1 && unresolved[0].detected_time == 1000, "conflict_detected_time");
 
     db.mark_conflict_resolved("a.md", "remote", 2000);
     expect(db.get_unresolved_conflicts().empty(), "resolved_conflict_no_longer_unresolved");
@@ -132,7 +131,7 @@ static void test_record_conflict_upserts_on_retrigger() {
     auto unresolved = db.get_unresolved_conflicts();
     expect(unresolved.size() == 1, "retriggered_conflict_keeps_one_row");
     expect(unresolved.size() == 1 && unresolved[0].remote_hash == "remote-2",
-          "retriggered_conflict_updates_hash");
+           "retriggered_conflict_updates_hash");
     fs::remove(path);
 }
 

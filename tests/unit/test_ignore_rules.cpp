@@ -38,7 +38,7 @@ static void test_anchored_directory_pattern_matches_at_any_depth() {
 
     expect(rules.matches(".obsidian/plugins/foo.json"), "anchored_dir_matches_direct_child");
     expect(rules.matches(".obsidian/plugins/some-plugin/data.json"),
-          "anchored_dir_matches_nested_child");
+           "anchored_dir_matches_nested_child");
     expect(!rules.matches(".obsidian/themes/foo.css"), "anchored_dir_does_not_match_sibling");
     expect(!rules.matches("plugins/foo.json"), "anchored_dir_does_not_match_unrooted_name");
 }

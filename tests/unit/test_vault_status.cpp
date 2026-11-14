@@ -85,7 +85,8 @@ static void test_list_conflicted_notes_empty_when_none() {
 }
 
 static void test_missing_vault_path_returns_zero_counts() {
-    const VaultStatus status = compute_vault_status({}, fs::temp_directory_path() / "does-not-exist");
+    const VaultStatus status =
+        compute_vault_status({}, fs::temp_directory_path() / "does-not-exist");
 
     expect(status.unresolved_conflicts == 0, "missing_vault_no_conflicts");
     expect(status.trashed_files == 0, "missing_vault_no_trashed_files");
@@ -143,12 +144,9 @@ static void test_resolve_conflict_returns_false_when_nothing_to_resolve() {
 }
 
 static void test_parse_conflict_resolution() {
-    expect(parse_conflict_resolution("local") == ConflictResolution::KeepLocal,
-           "parses_local");
-    expect(parse_conflict_resolution("remote") == ConflictResolution::KeepRemote,
-           "parses_remote");
-    expect(parse_conflict_resolution("merged") == ConflictResolution::Merged,
-           "parses_merged");
+    expect(parse_conflict_resolution("local") == ConflictResolution::KeepLocal, "parses_local");
+    expect(parse_conflict_resolution("remote") == ConflictResolution::KeepRemote, "parses_remote");
+    expect(parse_conflict_resolution("merged") == ConflictResolution::Merged, "parses_merged");
     expect(conflict_resolution_to_string(ConflictResolution::Merged) == "merged",
            "merged_to_string");
 

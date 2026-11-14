@@ -28,7 +28,7 @@ static FileMeta make_file(const std::string &path, const std::string &hash) {
 }
 
 static std::optional<ManifestActionType> find_action(const std::vector<ManifestAction> &actions,
-                                                      const std::string &path) {
+                                                     const std::string &path) {
     for (const auto &action : actions) {
         if (action.path == path) {
             return action.type;
@@ -69,27 +69,27 @@ static std::unordered_set<std::string> manifest_paths(const Manifest &manifest) 
 
 static ManifestActionType swap_upload_download_and_deletes(ManifestActionType type) {
     switch (type) {
-        case ManifestActionType::Upload:
-            return ManifestActionType::Download;
-        case ManifestActionType::Download:
-            return ManifestActionType::Upload;
-        case ManifestActionType::DeleteLocal:
-            return ManifestActionType::DeleteRemote;
-        case ManifestActionType::DeleteRemote:
-            return ManifestActionType::DeleteLocal;
-        default:
-            return type;
+    case ManifestActionType::Upload:
+        return ManifestActionType::Download;
+    case ManifestActionType::Download:
+        return ManifestActionType::Upload;
+    case ManifestActionType::DeleteLocal:
+        return ManifestActionType::DeleteRemote;
+    case ManifestActionType::DeleteRemote:
+        return ManifestActionType::DeleteLocal;
+    default:
+        return type;
     }
 }
 
-static void check_every_union_path_has_exactly_one_action(const Manifest &base,
-                                                           const Manifest &local,
-                                                           const Manifest &remote,
-                                                           const std::vector<ManifestAction> &actions,
-                                                           const std::string &case_name) {
+static void check_every_union_path_has_exactly_one_action(
+    const Manifest &base, const Manifest &local, const Manifest &remote,
+    const std::vector<ManifestAction> &actions, const std::string &case_name) {
     std::unordered_set<std::string> expected_paths = manifest_paths(base);
-    for (const auto &path : manifest_paths(local)) expected_paths.insert(path);
-    for (const auto &path : manifest_paths(remote)) expected_paths.insert(path);
+    for (const auto &path : manifest_paths(local))
+        expected_paths.insert(path);
+    for (const auto &path : manifest_paths(remote))
+        expected_paths.insert(path);
 
     std::unordered_set<std::string> seen;
 
@@ -111,7 +111,7 @@ static void test_property_every_union_path_covered_once() {
 
         auto actions = compare_three_way(base, local, remote);
         check_every_union_path_has_exactly_one_action(base, local, remote, actions,
-                                                       "coverage_trial_" + std::to_string(trial));
+                                                      "coverage_trial_" + std::to_string(trial));
     }
 }
 
@@ -149,9 +149,9 @@ static void test_property_identical_local_and_remote_never_conflict() {
         auto actions = compare_three_way(base, local, local);
 
         for (const auto &action : actions) {
-            expect(action.type == ManifestActionType::Unchanged,
-                   "identical_sides_trial_" + std::to_string(trial) + "_" + action.path +
-                       "_is_unchanged");
+            expect(action.type == ManifestActionType::Unchanged, "identical_sides_trial_" +
+                                                                     std::to_string(trial) + "_" +
+                                                                     action.path + "_is_unchanged");
         }
     }
 }
@@ -177,7 +177,8 @@ static void test_property_first_sync_from_empty_base() {
             if (in_local && !in_remote) {
                 expect(action == ManifestActionType::Upload, case_name + "_" + path + "_upload");
             } else if (!in_local && in_remote) {
-                expect(action == ManifestActionType::Download, case_name + "_" + path + "_download");
+                expect(action == ManifestActionType::Download,
+                       case_name + "_" + path + "_download");
             } else if (in_local && in_remote) {
                 bool same_hash = local_it->second.hash == remote_it->second.hash;
                 expect(action == (same_hash ? ManifestActionType::Unchanged
@@ -219,42 +220,39 @@ static void test_property_delete_never_drops_a_changed_side() {
     }
 }
 
-static void apply_action_to_manifests(const ManifestAction &action,
-                                      const Manifest &local,
-                                      const Manifest &remote,
-                                      Manifest &new_base,
-                                      Manifest &new_local,
-                                      Manifest &new_remote) {
+static void apply_action_to_manifests(const ManifestAction &action, const Manifest &local,
+                                      const Manifest &remote, Manifest &new_base,
+                                      Manifest &new_local, Manifest &new_remote) {
     switch (action.type) {
-        case ManifestActionType::Upload:
-            new_remote[action.path] = local.at(action.path);
-            new_base[action.path] = local.at(action.path);
-            break;
-        case ManifestActionType::Download:
-            new_local[action.path] = remote.at(action.path);
-            new_base[action.path] = remote.at(action.path);
-            break;
-        case ManifestActionType::DeleteLocal:
-            new_local.erase(action.path);
-            new_base.erase(action.path);
-            break;
-        case ManifestActionType::DeleteRemote:
-            new_remote.erase(action.path);
-            new_base.erase(action.path);
-            break;
-        case ManifestActionType::Unchanged: {
-            auto local_it = local.find(action.path);
+    case ManifestActionType::Upload:
+        new_remote[action.path] = local.at(action.path);
+        new_base[action.path] = local.at(action.path);
+        break;
+    case ManifestActionType::Download:
+        new_local[action.path] = remote.at(action.path);
+        new_base[action.path] = remote.at(action.path);
+        break;
+    case ManifestActionType::DeleteLocal:
+        new_local.erase(action.path);
+        new_base.erase(action.path);
+        break;
+    case ManifestActionType::DeleteRemote:
+        new_remote.erase(action.path);
+        new_base.erase(action.path);
+        break;
+    case ManifestActionType::Unchanged: {
+        auto local_it = local.find(action.path);
 
-            if (local_it != local.end()) {
-                new_base[action.path] = local_it->second;
-            } else {
-                new_base.erase(action.path);
-            }
-
-            break;
+        if (local_it != local.end()) {
+            new_base[action.path] = local_it->second;
+        } else {
+            new_base.erase(action.path);
         }
-        case ManifestActionType::Conflict:
-            break;
+
+        break;
+    }
+    case ManifestActionType::Conflict:
+        break;
     }
 }
 
@@ -289,7 +287,8 @@ static void test_property_plan_is_idempotent_once_applied() {
                 // A resolved path either converges to Unchanged (both sides still hold it) or
                 // drops out of the union entirely (a delete that left nothing anywhere) - either
                 // way it must never come back as Upload/Download/Delete/Conflict.
-                expect(!second_action.has_value() || *second_action == ManifestActionType::Unchanged,
+                expect(!second_action.has_value() ||
+                           *second_action == ManifestActionType::Unchanged,
                        case_name + "_" + action.path + "_never_resurfaces_as_a_pending_change");
             }
         }
@@ -298,12 +297,12 @@ static void test_property_plan_is_idempotent_once_applied() {
 
 static ManifestActionType swap_upload_download(ManifestActionType type) {
     switch (type) {
-        case ManifestActionType::Upload:
-            return ManifestActionType::Download;
-        case ManifestActionType::Download:
-            return ManifestActionType::Upload;
-        default:
-            return type;
+    case ManifestActionType::Upload:
+        return ManifestActionType::Download;
+    case ManifestActionType::Download:
+        return ManifestActionType::Upload;
+    default:
+        return type;
     }
 }
 
@@ -363,11 +362,11 @@ static void test_property_two_way_classifies_every_path_correctly() {
             if (in_local && !in_remote) {
                 expect(action == ManifestActionType::Upload, case_name + "_" + path + "_upload");
             } else if (!in_local && in_remote) {
-                expect(action == ManifestActionType::Download, case_name + "_" + path + "_download");
+                expect(action == ManifestActionType::Download,
+                       case_name + "_" + path + "_download");
             } else if (in_local && in_remote) {
                 bool same_hash = local_it->second.hash == remote_it->second.hash;
-                expect(same_hash ? !action.has_value()
-                                 : action == ManifestActionType::Conflict,
+                expect(same_hash ? !action.has_value() : action == ManifestActionType::Conflict,
                        case_name + "_" + path + "_matches_hash_comparison");
             } else {
                 expect(!action.has_value(), case_name + "_" + path + "_absent_everywhere");

@@ -29,8 +29,10 @@ static void test_format_metrics_prometheus() {
     expect(contains(text, "obsidian_sync_requests_total 42"), "requests_total");
     expect(contains(text, "obsidian_sync_response_bytes_total 12345"), "response_bytes_total");
     expect(contains(text, "obsidian_sync_uptime_seconds 1.5"), "uptime_seconds");
-    expect(contains(text, "obsidian_sync_requests_by_status_total{status=\"200\"} 40"), "status_200");
-    expect(contains(text, "obsidian_sync_requests_by_status_total{status=\"401\"} 2"), "status_401");
+    expect(contains(text, "obsidian_sync_requests_by_status_total{status=\"200\"} 40"),
+           "status_200");
+    expect(contains(text, "obsidian_sync_requests_by_status_total{status=\"401\"} 2"),
+           "status_401");
 }
 
 static void test_format_metrics_prometheus_empty() {

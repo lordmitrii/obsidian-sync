@@ -44,8 +44,7 @@ static void test_two_way_compare() {
 
     expect(actions.size() == 3, "two_way_action_count");
     expect(has_action(actions, ManifestActionType::Upload, "only-local.md"), "two_way_upload");
-    expect(has_action(actions, ManifestActionType::Download, "only-remote.md"),
-           "two_way_download");
+    expect(has_action(actions, ManifestActionType::Download, "only-remote.md"), "two_way_download");
     expect(has_action(actions, ManifestActionType::Conflict, "differs.md"), "two_way_conflict");
     expect(compare_two_way({}, {}).empty(), "two_way_both_empty");
 }

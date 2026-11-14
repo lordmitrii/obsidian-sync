@@ -39,9 +39,7 @@ struct Fixture {
 
     explicit Fixture(const std::string &name)
         : root(fs::temp_directory_path() / ("obsidian-sync-service-test-" + name)),
-          local(root / "local"),
-          remote(root / "remote"),
-          state((root / "state.db").string()) {
+          local(root / "local"), remote(root / "remote"), state((root / "state.db").string()) {
         fs::remove_all(root);
         fs::create_directories(local);
         fs::create_directories(remote);
@@ -81,8 +79,7 @@ struct Fixture {
 class MidRunEditingBackend : public LocalRemoteBackend {
   public:
     MidRunEditingBackend(const fs::path &remote_root, fs::path edit_path, std::string new_content)
-        : LocalRemoteBackend(remote_root),
-          edit_path_(std::move(edit_path)),
+        : LocalRemoteBackend(remote_root), edit_path_(std::move(edit_path)),
           new_content_(std::move(new_content)) {}
 
     Manifest load_manifest() override {
@@ -198,7 +195,8 @@ static void test_trash_cleanup_removes_old_entry_on_next_sync() {
     write_file(f.local / "b.md", "v2");
     f.sync();
 
-    expect(!fs::exists(f.local / ".trash" / "a.md"), "trash_cleanup_removes_old_entry_on_next_sync");
+    expect(!fs::exists(f.local / ".trash" / "a.md"),
+           "trash_cleanup_removes_old_entry_on_next_sync");
 }
 
 static void test_trash_retention_days_zero_disables_cleanup() {
@@ -235,10 +233,9 @@ static void test_conflict_keeps_local_and_saves_remote_copy() {
     Database db(f.state);
     db.initialize();
     auto unresolved = db.get_unresolved_conflicts();
-    expect(unresolved.size() == 1 && unresolved[0].path == "a.md",
-          "conflict_recorded_in_state_db");
+    expect(unresolved.size() == 1 && unresolved[0].path == "a.md", "conflict_recorded_in_state_db");
     expect(unresolved.size() == 1 && unresolved[0].local_hash != unresolved[0].remote_hash,
-          "conflict_record_has_differing_hashes");
+           "conflict_record_has_differing_hashes");
 }
 
 static void test_repeated_conflict_does_not_fail_forever() {
@@ -310,11 +307,11 @@ static void test_conflict_merges_independent_edits_automatically() {
 
     expect(status == RunStatus::Success, "merge_independent_edits_reports_success");
     expect(read_file(f.local / "a.md") == "LOCAL\nline2\nREMOTE\n",
-          "merge_independent_edits_merges_both_sides");
+           "merge_independent_edits_merges_both_sides");
     expect(read_file(f.remote / "a.md") == "LOCAL\nline2\nREMOTE\n",
-          "merge_independent_edits_uploads_result");
+           "merge_independent_edits_uploads_result");
     expect(!fs::exists(f.local / "a.conflict-remote.md"),
-          "merge_independent_edits_leaves_no_conflict_copy");
+           "merge_independent_edits_leaves_no_conflict_copy");
 }
 
 static void test_conflict_falls_back_to_copy_when_merge_overlaps() {
@@ -329,7 +326,7 @@ static void test_conflict_falls_back_to_copy_when_merge_overlaps() {
     expect(status == RunStatus::ConflictsPending, "merge_overlap_falls_back_to_conflicts_pending");
     expect(read_file(f.local / "a.md") == "LOCAL\nline2\nline3\n", "merge_overlap_keeps_local");
     expect(read_file(f.local / "a.conflict-remote.md") == "REMOTE\nline2\nline3\n",
-          "merge_overlap_saves_conflict_copy");
+           "merge_overlap_saves_conflict_copy");
 }
 
 static void test_conflict_keep_local_overwrites_remote() {

@@ -38,7 +38,8 @@ static void test_is_secure_remote_url() {
     expect(is_secure_remote_url("http://127.0.0.1:38471"), "http_loopback_ip_is_secure");
     expect(is_secure_remote_url("http://localhost:38471"), "http_localhost_is_secure");
     expect(is_secure_remote_url("http://[::1]:38471"), "http_ipv6_loopback_is_secure");
-    expect(!is_secure_remote_url("http://sync.example.com"), "plain_http_to_remote_host_is_insecure");
+    expect(!is_secure_remote_url("http://sync.example.com"),
+           "plain_http_to_remote_host_is_insecure");
     expect(!is_secure_remote_url("http://127.0.0.1.evil.com"), "lookalike_host_is_insecure");
     expect(!is_secure_remote_url("ftp://127.0.0.1"), "unknown_scheme_is_insecure");
 }

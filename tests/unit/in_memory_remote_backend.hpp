@@ -23,8 +23,8 @@ class InMemoryRemoteBackend : public RemoteBackend {
         Manifest manifest;
 
         for (const auto &[path, entry] : files_) {
-            manifest[path] = FileMeta{path, sha256_bytes(entry.content),
-                                      entry.content.size(), entry.version};
+            manifest[path] =
+                FileMeta{path, sha256_bytes(entry.content), entry.content.size(), entry.version};
         }
 
         return manifest;
@@ -49,9 +49,9 @@ class InMemoryRemoteBackend : public RemoteBackend {
         }
 
         if (std::filesystem::exists(local_conflict_path)) {
-            throw std::filesystem::filesystem_error(
-                "Refusing to overwrite existing file", local_conflict_path,
-                std::make_error_code(std::errc::file_exists));
+            throw std::filesystem::filesystem_error("Refusing to overwrite existing file",
+                                                    local_conflict_path,
+                                                    std::make_error_code(std::errc::file_exists));
         }
 
         write_file(local_conflict_path, it->second.content);

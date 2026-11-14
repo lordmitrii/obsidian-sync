@@ -62,7 +62,7 @@ static void test_prune_all_enforces_max_versions_per_file() {
 
     auto newest = history.content(versions[0].hash);
     expect(newest.has_value() && *newest == "v3",
-          "prune_all_enforces_max_versions_per_file (keeps newest)");
+           "prune_all_enforces_max_versions_per_file (keeps newest)");
 }
 
 static void test_prune_all_drops_orphaned_objects() {

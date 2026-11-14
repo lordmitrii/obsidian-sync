@@ -23,15 +23,15 @@ static void expect_clean(const MergeResult &result, const std::string &expected_
 static void expect_conflicted(const MergeResult &result, const std::string &case_name) {
     expect(result.status == MergeStatus::Conflicted, case_name + " (expected conflict)");
     expect(result.content.find("<<<<<<< local\n") != std::string::npos,
-          case_name + " (local marker)");
+           case_name + " (local marker)");
     expect(result.content.find("=======\n") != std::string::npos, case_name + " (split marker)");
     expect(result.content.find(">>>>>>> remote\n") != std::string::npos,
-          case_name + " (remote marker)");
+           case_name + " (remote marker)");
 }
 
 static void test_identity() {
     for (const std::string &text : {std::string(""), std::string("one line, no newline"),
-                                     std::string("a\nb\nc\n"), std::string("a\nb\nc")}) {
+                                    std::string("a\nb\nc\n"), std::string("a\nb\nc")}) {
         expect_clean(merge_three_way_text(text, text, text), text, "identity");
     }
 }
@@ -66,7 +66,7 @@ static void test_independent_edits_both_apply() {
     std::string ours = "ONE\n2\n3\n4\n5\n";
     std::string theirs = "1\n2\n3\n4\nFIVE\n";
     expect_clean(merge_three_way_text(base, ours, theirs), "ONE\n2\n3\n4\nFIVE\n",
-                "independent_edits_both_apply");
+                 "independent_edits_both_apply");
 }
 
 static void test_insertions_at_different_points_both_apply() {
@@ -74,7 +74,7 @@ static void test_insertions_at_different_points_both_apply() {
     std::string ours = "inserted\na\nb\n";
     std::string theirs = "a\nb\nappended\n";
     expect_clean(merge_three_way_text(base, ours, theirs), "inserted\na\nb\nappended\n",
-                "insertions_at_different_points");
+                 "insertions_at_different_points");
 }
 
 static void test_conflicting_insertions_at_same_point() {
@@ -96,7 +96,7 @@ static void test_no_trailing_newline_is_preserved() {
     std::string base = "a\nb";
     std::string ours = "a\nchanged";
     expect_clean(merge_three_way_text(base, ours, base), "a\nchanged",
-                "no_trailing_newline_preserved");
+                 "no_trailing_newline_preserved");
 }
 
 static void test_both_sides_delete_everything_is_clean() {

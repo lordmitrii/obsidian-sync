@@ -101,9 +101,9 @@ static void test_delete_safety_limits() {
     expect(throws_with({"--local-root", "/tmp", "--remote-root", "/tmp", "--max-deletes", "abc"},
                        "--max-deletes must be a number"),
            "max_deletes_rejects_non_numeric");
-    expect(throws_with({"--local-root", "/tmp", "--remote-root", "/tmp", "--max-delete-percent",
-                        "150"},
-                       "--max-delete-percent must be between 0 and 100"),
+    expect(throws_with(
+               {"--local-root", "/tmp", "--remote-root", "/tmp", "--max-delete-percent", "150"},
+               "--max-delete-percent must be between 0 and 100"),
            "max_delete_percent_rejects_out_of_range");
 }
 
@@ -115,9 +115,9 @@ static void test_trash_retention_days() {
         parse({"--local-root", "/tmp", "--remote-root", "/tmp", "--trash-retention-days", "7"});
     expect(config.trash_retention_days == 7, "trash_retention_days_is_captured");
 
-    expect(throws_with({"--local-root", "/tmp", "--remote-root", "/tmp", "--trash-retention-days",
-                        "abc"},
-                       "--trash-retention-days must be a number"),
+    expect(throws_with(
+               {"--local-root", "/tmp", "--remote-root", "/tmp", "--trash-retention-days", "abc"},
+               "--trash-retention-days must be a number"),
            "trash_retention_days_rejects_non_numeric");
 }
 
@@ -125,12 +125,10 @@ static void test_sync_config_preset() {
     Config defaults = parse({"--local-root", "/tmp", "--remote-root", "/tmp"});
     expect(defaults.sync_config == SyncConfigPreset::All, "sync_config_defaults_to_all");
 
-    Config none =
-        parse({"--local-root", "/tmp", "--remote-root", "/tmp", "--sync-config", "none"});
+    Config none = parse({"--local-root", "/tmp", "--remote-root", "/tmp", "--sync-config", "none"});
     expect(none.sync_config == SyncConfigPreset::None, "sync_config_accepts_none");
 
-    Config core =
-        parse({"--local-root", "/tmp", "--remote-root", "/tmp", "--sync-config", "core"});
+    Config core = parse({"--local-root", "/tmp", "--remote-root", "/tmp", "--sync-config", "core"});
     expect(core.sync_config == SyncConfigPreset::Core, "sync_config_accepts_core");
 
     expect(throws_with({"--local-root", "/tmp", "--remote-root", "/tmp", "--sync-config", "bogus"},
@@ -189,7 +187,8 @@ static void test_conflicts_subcommands() {
     expect(list.conflicts_output, "conflicts_list_subcommand_sets_conflicts_output");
     expect(list.vault_path == "/tmp", "conflicts_list_subcommand_still_parses_other_flags");
 
-    Config resolve = parse({"conflicts", "resolve", "note.md", "--vault", "/tmp", "--keep", "remote"});
+    Config resolve =
+        parse({"conflicts", "resolve", "note.md", "--vault", "/tmp", "--keep", "remote"});
     expect(resolve.resolve_conflict_path == "note.md",
            "conflicts_resolve_subcommand_captures_note_path");
     expect(resolve.conflict_resolution == ConflictResolution::KeepRemote,
@@ -211,16 +210,16 @@ static void test_history_subcommand() {
     expect(history.remote_url == "https://example.org", "history_subcommand_still_parses_flags");
 
     expect(throws_with({"history"}, "history requires a path"), "history_requires_path");
-    expect(throws_with({"history", "--remote-url", "https://example.org"},
-                       "history requires a path"),
-           "history_rejects_flag_in_place_of_path");
+    expect(
+        throws_with({"history", "--remote-url", "https://example.org"}, "history requires a path"),
+        "history_rejects_flag_in_place_of_path");
     expect(throws_with({"history", "note.md"}, "history, restore, and prune require --remote-url"),
            "history_requires_remote_url");
 }
 
 static void test_restore_subcommand() {
-    Config by_hash = parse(
-        {"restore", "note.md", "--remote-url", "https://example.org", "--hash", "abc123"});
+    Config by_hash =
+        parse({"restore", "note.md", "--remote-url", "https://example.org", "--hash", "abc123"});
     expect(by_hash.restore_path == "note.md", "restore_subcommand_captures_path");
     expect(by_hash.restore_hash == "abc123", "restore_subcommand_parses_hash");
 
@@ -233,7 +232,7 @@ static void test_restore_subcommand() {
                        "restore requires --hash <hash> or --at <timestamp>"),
            "restore_requires_hash_or_at");
     expect(throws_with({"restore", "note.md", "--remote-url", "https://example.org", "--hash",
-                       "abc", "--at", "2026-01-01T00:00:00Z"},
+                        "abc", "--at", "2026-01-01T00:00:00Z"},
                        "restore takes --hash or --at, not both"),
            "restore_rejects_both_hash_and_at");
 }
@@ -270,9 +269,8 @@ static void test_resolve_conflict_requires_keep() {
 }
 
 static void test_missing_required_argument() {
-    expect(throws_with({},
-                       "Missing required argument: --vault, --server-root, "
-                       "--compare-manifests, or --local-root with --remote-root/--remote-url"),
+    expect(throws_with({}, "Missing required argument: --vault, --server-root, "
+                           "--compare-manifests, or --local-root with --remote-root/--remote-url"),
            "missing_required_argument");
 }
 

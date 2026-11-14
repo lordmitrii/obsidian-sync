@@ -27,11 +27,9 @@ static void test_known_digests() {
     const auto empty = write_temp("empty", "");
     const auto abc = write_temp("abc", "abc");
 
-    expect(sha256_file(empty) ==
-               "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    expect(sha256_file(empty) == "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
            "empty_file_digest");
-    expect(sha256_file(abc) ==
-               "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+    expect(sha256_file(abc) == "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
            "abc_digest");
 
     fs::remove(empty);
