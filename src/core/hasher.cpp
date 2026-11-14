@@ -62,6 +62,36 @@ std::string sha256_file(const std::filesystem::path &path) {
     return hex_encode(hash, hash_length);
 }
 
+IncrementalSha256::IncrementalSha256() : ctx_(EVP_MD_CTX_new()) {
+    if (!ctx_) {
+        throw std::runtime_error("Failed to create EVP context");
+    }
+
+    if (EVP_DigestInit_ex(ctx_, EVP_sha256(), nullptr) != 1) {
+        EVP_MD_CTX_free(ctx_);
+        throw std::runtime_error("EVP_DigestInit_ex failed");
+    }
+}
+
+IncrementalSha256::~IncrementalSha256() { EVP_MD_CTX_free(ctx_); }
+
+void IncrementalSha256::update(const char *data, std::size_t length) {
+    if (length > 0 && EVP_DigestUpdate(ctx_, data, length) != 1) {
+        throw std::runtime_error("EVP_DigestUpdate failed");
+    }
+}
+
+std::string IncrementalSha256::digest() {
+    unsigned char hash[EVP_MAX_MD_SIZE];
+    unsigned int hash_length = 0;
+
+    if (EVP_DigestFinal_ex(ctx_, hash, &hash_length) != 1) {
+        throw std::runtime_error("EVP_DigestFinal_ex failed");
+    }
+
+    return hex_encode(hash, hash_length);
+}
+
 std::string sha256_bytes(const std::string &data) {
     EVP_MD_CTX *ctx = EVP_MD_CTX_new();
 

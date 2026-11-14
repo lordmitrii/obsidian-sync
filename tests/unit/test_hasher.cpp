@@ -1,5 +1,7 @@
 #include "hasher.hpp"
 
+#include <algorithm>
+#include <cstddef>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -65,6 +67,34 @@ static void test_bytes_match_file_digest_for_same_content() {
     fs::remove(abc);
 }
 
+static void test_incremental_matches_bytes_digest_in_one_chunk() {
+    IncrementalSha256 hasher;
+    hasher.update("abc", 3);
+
+    expect(hasher.digest() == sha256_bytes("abc"), "incremental_single_chunk_matches_bytes_digest");
+}
+
+static void test_incremental_matches_across_chunk_boundaries() {
+    std::string content(20000, 'a');
+    IncrementalSha256 hasher;
+    std::size_t offset = 0;
+
+    while (offset < content.size()) {
+        std::size_t chunk = std::min<std::size_t>(7, content.size() - offset);
+        hasher.update(content.data() + offset, chunk);
+        offset += chunk;
+    }
+
+    expect(hasher.digest() == sha256_bytes(content), "incremental_odd_chunks_match_bytes_digest");
+}
+
+static void test_incremental_empty_matches_empty_digest() {
+    IncrementalSha256 hasher;
+    hasher.update("", 0);
+
+    expect(hasher.digest() == sha256_bytes(""), "incremental_empty_matches_empty_digest");
+}
+
 static void test_missing_file_throws() {
     bool threw = false;
 
@@ -81,6 +111,9 @@ int main() {
     test_known_digests();
     test_larger_than_read_buffer();
     test_bytes_match_file_digest_for_same_content();
+    test_incremental_matches_bytes_digest_in_one_chunk();
+    test_incremental_matches_across_chunk_boundaries();
+    test_incremental_empty_matches_empty_digest();
     test_missing_file_throws();
 
     if (failures == 0) {
