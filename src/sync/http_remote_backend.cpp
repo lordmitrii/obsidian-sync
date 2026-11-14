@@ -4,12 +4,10 @@
 #include "manifest.hpp"
 #include "security.hpp"
 
-#include <cstring>
 #include <curl/curl.h>
 #include <filesystem>
 #include <fstream>
 #include <nlohmann/json.hpp>
-#include <sstream>
 #include <stdexcept>
 #include <utility>
 
@@ -32,6 +30,30 @@ static std::size_t write_to_string(char *ptr, std::size_t size, std::size_t nmem
     auto *body = static_cast<std::string *>(userdata);
     body->append(ptr, size * nmemb);
     return size * nmemb;
+}
+
+struct FileWriteContext {
+    AtomicFileWriter *writer;
+    std::string error;
+};
+
+static std::size_t write_to_file(char *ptr, std::size_t size, std::size_t nmemb, void *userdata) {
+    auto *ctx = static_cast<FileWriteContext *>(userdata);
+    std::size_t length = size * nmemb;
+
+    try {
+        ctx->writer->write(ptr, length);
+        return length;
+    } catch (const std::exception &e) {
+        ctx->error = e.what();
+        return 0;
+    }
+}
+
+static std::size_t read_from_file(char *buf, std::size_t size, std::size_t nmemb, void *userdata) {
+    auto *stream = static_cast<std::ifstream *>(userdata);
+    stream->read(buf, static_cast<std::streamsize>(size * nmemb));
+    return static_cast<std::size_t>(stream->gcount());
 }
 
 static std::string escape_query_value(CURL *curl, const std::string &value) {
@@ -96,24 +118,19 @@ static std::string prune_url(const std::string &remote_url) {
     return trim_trailing_slashes(remote_url) + "/prune";
 }
 
-static HttpResponse request(const std::string &method, const std::string &url,
-                            const std::string &bearer_token, const std::string &cacert_path,
-                            const std::string *body = nullptr) {
+static CURL *init_curl_request(const std::string &url, const std::string &bearer_token,
+                               const std::string &cacert_path, curl_slist *&headers) {
     CURL *curl = curl_easy_init();
 
     if (curl == nullptr) {
         throw std::runtime_error("Failed to initialize curl");
     }
 
-    HttpResponse response;
-    curl_slist *headers = nullptr;
     std::string auth_header = "Authorization: " + bearer_authorization_header(bearer_token);
     headers = curl_slist_append(headers, auth_header.c_str());
 
     curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
     curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
-    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_to_string);
-    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response.body);
     curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 0L);
     curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, DEFAULT_HTTP_CONNECT_TIMEOUT_SECONDS);
     curl_easy_setopt(curl, CURLOPT_TIMEOUT, DEFAULT_HTTP_REQUEST_TIMEOUT_SECONDS);
@@ -122,32 +139,19 @@ static HttpResponse request(const std::string &method, const std::string &url,
         curl_easy_setopt(curl, CURLOPT_CAINFO, cacert_path.c_str());
     }
 
-    struct ReadState {
-        const char *data;
-        std::size_t remaining;
-        std::size_t offset;
-    };
-    ReadState read_state{};
+    return curl;
+}
 
-    if (method == "PUT") {
-        if (body != nullptr) {
-            read_state = {body->data(), body->size(), 0};
-        }
-        curl_easy_setopt(curl, CURLOPT_UPLOAD, 1L);
-        curl_easy_setopt(curl, CURLOPT_INFILESIZE_LARGE,
-                         static_cast<curl_off_t>(body != nullptr ? body->size() : 0));
-        curl_easy_setopt(
-            curl, CURLOPT_READFUNCTION,
-            +[](char *buf, std::size_t size, std::size_t nmemb, void *ud) -> std::size_t {
-                auto *s = static_cast<ReadState *>(ud);
-                std::size_t n = std::min(size * nmemb, s->remaining);
-                std::memcpy(buf, s->data + s->offset, n);
-                s->offset += n;
-                s->remaining -= n;
-                return n;
-            });
-        curl_easy_setopt(curl, CURLOPT_READDATA, &read_state);
-    } else if (method == "DELETE") {
+static HttpResponse request(const std::string &method, const std::string &url,
+                            const std::string &bearer_token, const std::string &cacert_path) {
+    curl_slist *headers = nullptr;
+    CURL *curl = init_curl_request(url, bearer_token, cacert_path, headers);
+
+    HttpResponse response;
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_to_string);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response.body);
+
+    if (method == "DELETE") {
         curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, "DELETE");
     } else if (method == "POST") {
         curl_easy_setopt(curl, CURLOPT_POST, 1L);
@@ -170,24 +174,31 @@ static HttpResponse request(const std::string &method, const std::string &url,
     return response;
 }
 
-static std::string read_file(const fs::path &path) {
-    std::ifstream in(path, std::ios::binary);
+static long stream_download(const std::string &url, const std::string &bearer_token,
+                            const std::string &cacert_path, AtomicFileWriter &writer) {
+    curl_slist *headers = nullptr;
+    CURL *curl = init_curl_request(url, bearer_token, cacert_path, headers);
 
-    if (!in) {
-        throw std::runtime_error("Failed to open local file for reading: " + path.string());
+    FileWriteContext ctx{&writer, ""};
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_to_file);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &ctx);
+
+    CURLcode code = curl_easy_perform(curl);
+
+    long status = 0;
+    curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &status);
+    curl_slist_free_all(headers);
+    curl_easy_cleanup(curl);
+
+    if (!ctx.error.empty()) {
+        throw std::runtime_error(ctx.error);
     }
 
-    std::ostringstream stream;
-    stream << in.rdbuf();
-    return stream.str();
-}
-
-static void write_file(const fs::path &path, const std::string &body, bool overwrite) {
-    if (!overwrite && fs::exists(path)) {
-        throw std::runtime_error("Refusing to overwrite file: " + path.string());
+    if (code != CURLE_OK) {
+        throw std::runtime_error("HTTP request failed: " + std::string(curl_easy_strerror(code)));
     }
 
-    atomic_write_file(path, body);
+    return status;
 }
 
 HttpRemoteBackend::HttpRemoteBackend(std::string remote_url, std::string bearer_token,
@@ -207,34 +218,59 @@ Manifest HttpRemoteBackend::load_manifest() {
 }
 
 void HttpRemoteBackend::upload(const std::string &path, const fs::path &local_file) {
-    if (fs::file_size(local_file) > max_upload_bytes_) {
+    auto file_size = fs::file_size(local_file);
+
+    if (file_size > max_upload_bytes_) {
         throw std::runtime_error("Upload exceeds maximum size: " + path);
     }
 
-    std::string body = read_file(local_file);
-    HttpResponse response =
-        request("PUT", file_url(remote_url_, path), bearer_token_, cacert_path_, &body);
+    std::ifstream in(local_file, std::ios::binary);
 
-    if (response.status == 413) {
+    if (!in) {
+        throw std::runtime_error("Failed to open local file for reading: " + local_file.string());
+    }
+
+    curl_slist *headers = nullptr;
+    CURL *curl =
+        init_curl_request(file_url(remote_url_, path), bearer_token_, cacert_path_, headers);
+
+    std::string response_body;
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_to_string);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response_body);
+    curl_easy_setopt(curl, CURLOPT_UPLOAD, 1L);
+    curl_easy_setopt(curl, CURLOPT_INFILESIZE_LARGE, static_cast<curl_off_t>(file_size));
+    curl_easy_setopt(curl, CURLOPT_READFUNCTION, read_from_file);
+    curl_easy_setopt(curl, CURLOPT_READDATA, &in);
+
+    CURLcode code = curl_easy_perform(curl);
+
+    long status = 0;
+    curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &status);
+    curl_slist_free_all(headers);
+    curl_easy_cleanup(curl);
+
+    if (code != CURLE_OK) {
+        throw std::runtime_error("HTTP request failed: " + std::string(curl_easy_strerror(code)));
+    }
+
+    if (status == 413) {
         throw std::runtime_error("Upload rejected as too large: " + path);
     }
 
-    if (response.status < 200 || response.status >= 300) {
-        throw std::runtime_error("Upload failed for " + path + ": HTTP " +
-                                 std::to_string(response.status));
+    if (status < 200 || status >= 300) {
+        throw std::runtime_error("Upload failed for " + path + ": HTTP " + std::to_string(status));
     }
 }
 
 void HttpRemoteBackend::download(const std::string &path, const fs::path &local_file) {
-    HttpResponse response =
-        request("GET", file_url(remote_url_, path), bearer_token_, cacert_path_);
+    AtomicFileWriter writer(local_file);
+    long status = stream_download(file_url(remote_url_, path), bearer_token_, cacert_path_, writer);
 
-    if (response.status != 200) {
-        throw std::runtime_error("Download failed for " + path + ": HTTP " +
-                                 std::to_string(response.status));
+    if (status != 200) {
+        throw std::runtime_error("Download failed for " + path + ": HTTP " + std::to_string(status));
     }
 
-    write_file(local_file, response.body, true);
+    writer.commit();
 }
 
 void HttpRemoteBackend::delete_remote(const std::string &path) {
@@ -249,19 +285,24 @@ void HttpRemoteBackend::delete_remote(const std::string &path) {
 
 void HttpRemoteBackend::save_conflict_copy(const std::string &path,
                                            const fs::path &local_conflict_path) {
-    HttpResponse response =
-        request("GET", file_url(remote_url_, path), bearer_token_, cacert_path_);
+    AtomicFileWriter writer(local_conflict_path);
+    long status =
+        stream_download(file_url(remote_url_, path), bearer_token_, cacert_path_, writer);
 
-    if (response.status == 404) {
+    if (status == 404) {
         return;
     }
 
-    if (response.status != 200) {
+    if (status != 200) {
         throw std::runtime_error("Conflict download failed for " + path + ": HTTP " +
-                                 std::to_string(response.status));
+                                 std::to_string(status));
     }
 
-    write_file(local_conflict_path, response.body, false);
+    if (fs::exists(local_conflict_path)) {
+        throw std::runtime_error("Refusing to overwrite file: " + local_conflict_path.string());
+    }
+
+    writer.commit();
 }
 
 std::vector<FileVersion> HttpRemoteBackend::history(const std::string &path) const {
