@@ -1,6 +1,7 @@
 #include "http_remote_backend.hpp"
 
 #include "atomic_file.hpp"
+#include "hasher.hpp"
 #include "manifest.hpp"
 #include "security.hpp"
 
@@ -34,6 +35,7 @@ static std::size_t write_to_string(char *ptr, std::size_t size, std::size_t nmem
 
 struct FileWriteContext {
     AtomicFileWriter *writer;
+    IncrementalSha256 *hasher;
     std::string error;
 };
 
@@ -43,6 +45,11 @@ static std::size_t write_to_file(char *ptr, std::size_t size, std::size_t nmemb,
 
     try {
         ctx->writer->write(ptr, length);
+
+        if (ctx->hasher != nullptr) {
+            ctx->hasher->update(ptr, length);
+        }
+
         return length;
     } catch (const std::exception &e) {
         ctx->error = e.what();
@@ -175,11 +182,13 @@ static HttpResponse request(const std::string &method, const std::string &url,
 }
 
 static long stream_download(const std::string &url, const std::string &bearer_token,
-                            const std::string &cacert_path, AtomicFileWriter &writer) {
+                            const std::string &cacert_path, AtomicFileWriter &writer,
+                            const std::string &expected_hash) {
     curl_slist *headers = nullptr;
     CURL *curl = init_curl_request(url, bearer_token, cacert_path, headers);
 
-    FileWriteContext ctx{&writer, ""};
+    IncrementalSha256 hasher;
+    FileWriteContext ctx{&writer, expected_hash.empty() ? nullptr : &hasher, ""};
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_to_file);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &ctx);
 
@@ -196,6 +205,10 @@ static long stream_download(const std::string &url, const std::string &bearer_to
 
     if (code != CURLE_OK) {
         throw std::runtime_error("HTTP request failed: " + std::string(curl_easy_strerror(code)));
+    }
+
+    if (status == 200 && ctx.hasher != nullptr && hasher.digest() != expected_hash) {
+        throw std::runtime_error("Downloaded content hash mismatch for " + url);
     }
 
     return status;
@@ -262,9 +275,11 @@ void HttpRemoteBackend::upload(const std::string &path, const fs::path &local_fi
     }
 }
 
-void HttpRemoteBackend::download(const std::string &path, const fs::path &local_file) {
+void HttpRemoteBackend::download(const std::string &path, const fs::path &local_file,
+                                 const std::string &expected_hash) {
     AtomicFileWriter writer(local_file);
-    long status = stream_download(file_url(remote_url_, path), bearer_token_, cacert_path_, writer);
+    long status = stream_download(file_url(remote_url_, path), bearer_token_, cacert_path_, writer,
+                                  expected_hash);
 
     if (status != 200) {
         throw std::runtime_error("Download failed for " + path + ": HTTP " + std::to_string(status));
@@ -284,10 +299,11 @@ void HttpRemoteBackend::delete_remote(const std::string &path) {
 }
 
 void HttpRemoteBackend::save_conflict_copy(const std::string &path,
-                                           const fs::path &local_conflict_path) {
+                                           const fs::path &local_conflict_path,
+                                           const std::string &expected_hash) {
     AtomicFileWriter writer(local_conflict_path);
-    long status =
-        stream_download(file_url(remote_url_, path), bearer_token_, cacert_path_, writer);
+    long status = stream_download(file_url(remote_url_, path), bearer_token_, cacert_path_, writer,
+                                  expected_hash);
 
     if (status == 404) {
         return;

@@ -10,10 +10,11 @@ class LocalRemoteBackend : public RemoteBackend {
 
     Manifest load_manifest() override;
     void upload(const std::string &path, const std::filesystem::path &local_file) override;
-    void download(const std::string &path, const std::filesystem::path &local_file) override;
+    void download(const std::string &path, const std::filesystem::path &local_file,
+                  const std::string &expected_hash = "") override;
     void delete_remote(const std::string &path) override;
-    void save_conflict_copy(const std::string &path,
-                            const std::filesystem::path &local_conflict_path) override;
+    void save_conflict_copy(const std::string &path, const std::filesystem::path &local_conflict_path,
+                            const std::string &expected_hash = "") override;
 
   private:
     std::filesystem::path remote_root_;

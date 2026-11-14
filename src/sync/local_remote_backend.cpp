@@ -1,10 +1,12 @@
 #include "local_remote_backend.hpp"
 
 #include "atomic_file.hpp"
+#include "hasher.hpp"
 #include "scanner.hpp"
 
 #include <filesystem>
 #include <iostream>
+#include <stdexcept>
 #include <system_error>
 
 namespace fs = std::filesystem;
@@ -40,9 +42,16 @@ void LocalRemoteBackend::upload(const std::string &path, const fs::path &local_f
     copy_file_overwriting(local_file, remote_root_ / path);
 }
 
-void LocalRemoteBackend::download(const std::string &path, const fs::path &local_file) {
+void LocalRemoteBackend::download(const std::string &path, const fs::path &local_file,
+                                  const std::string &expected_hash) {
     std::cout << "Downloading " << path << "\n";
-    copy_file_overwriting(remote_root_ / path, local_file);
+    fs::path remote_path = remote_root_ / path;
+
+    if (!expected_hash.empty() && sha256_file(remote_path) != expected_hash) {
+        throw std::runtime_error("Downloaded content hash mismatch for " + path);
+    }
+
+    copy_file_overwriting(remote_path, local_file);
 }
 
 void LocalRemoteBackend::delete_remote(const std::string &path) {
@@ -51,12 +60,17 @@ void LocalRemoteBackend::delete_remote(const std::string &path) {
 }
 
 void LocalRemoteBackend::save_conflict_copy(const std::string &path,
-                                            const fs::path &local_conflict_path) {
+                                            const fs::path &local_conflict_path,
+                                            const std::string &expected_hash) {
     fs::path remote_path = remote_root_ / path;
 
     if (!fs::exists(remote_path)) {
         std::cout << "Remote version is missing; no conflict copy was saved\n";
         return;
+    }
+
+    if (!expected_hash.empty() && sha256_file(remote_path) != expected_hash) {
+        throw std::runtime_error("Downloaded content hash mismatch for " + path);
     }
 
     copy_file_without_overwriting(remote_path, local_conflict_path);

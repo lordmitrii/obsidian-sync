@@ -34,18 +34,29 @@ class InMemoryRemoteBackend : public RemoteBackend {
         files_[path] = {read_file(local_file), next_version_++};
     }
 
-    void download(const std::string &path, const std::filesystem::path &local_file) override {
-        write_file(local_file, files_.at(path).content);
+    void download(const std::string &path, const std::filesystem::path &local_file,
+                  const std::string &expected_hash = "") override {
+        const auto &content = files_.at(path).content;
+
+        if (!expected_hash.empty() && sha256_bytes(content) != expected_hash) {
+            throw std::runtime_error("Downloaded content hash mismatch for " + path);
+        }
+
+        write_file(local_file, content);
     }
 
     void delete_remote(const std::string &path) override { files_.erase(path); }
 
-    void save_conflict_copy(const std::string &path,
-                            const std::filesystem::path &local_conflict_path) override {
+    void save_conflict_copy(const std::string &path, const std::filesystem::path &local_conflict_path,
+                            const std::string &expected_hash = "") override {
         auto it = files_.find(path);
 
         if (it == files_.end()) {
             return;
+        }
+
+        if (!expected_hash.empty() && sha256_bytes(it->second.content) != expected_hash) {
+            throw std::runtime_error("Downloaded content hash mismatch for " + path);
         }
 
         if (std::filesystem::exists(local_conflict_path)) {

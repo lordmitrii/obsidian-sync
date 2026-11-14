@@ -301,9 +301,13 @@ static bool apply_action(const ManifestAction &action, const fs::path &local_roo
         return false;
     }
 
-    case ManifestActionType::Download:
-        remote_backend.download(action.path, local_path);
+    case ManifestActionType::Download: {
+        auto remote_meta = remote_manifest.find(action.path);
+        remote_backend.download(action.path, local_path,
+                                remote_meta != remote_manifest.end() ? remote_meta->second.hash
+                                                                     : "");
         return false;
+    }
 
     case ManifestActionType::DeleteLocal:
         std::cout << "Moving local " << action.path << " to .trash\n";
@@ -330,7 +334,10 @@ static bool apply_action(const ManifestAction &action, const fs::path &local_roo
         }
 
         if (on_conflict == OnConflictPolicy::KeepRemote) {
-            remote_backend.download(action.path, local_path);
+            auto remote_meta = remote_manifest.find(action.path);
+            remote_backend.download(action.path, local_path,
+                                    remote_meta != remote_manifest.end() ? remote_meta->second.hash
+                                                                         : "");
             std::cout << "Keeping remote " << action.path << ", overwriting local\n";
             return true;
         }
@@ -350,7 +357,8 @@ static bool apply_action(const ManifestAction &action, const fs::path &local_roo
             return false;
         }
 
-        remote_backend.save_conflict_copy(action.path, slot.path);
+        remote_backend.save_conflict_copy(action.path, slot.path,
+                                          remote_hash != nullptr ? *remote_hash : "");
         return false;
     }
 
