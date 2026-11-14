@@ -11,13 +11,13 @@ struct IgnorePattern {
 };
 
 class IgnoreRules {
-public:
+  public:
     void add_line(const std::string &line);
     void merge(const IgnoreRules &other);
     bool matches(const std::filesystem::path &relative_path) const;
     bool empty() const { return patterns_.empty(); }
 
-private:
+  private:
     std::vector<IgnorePattern> patterns_;
 };
 

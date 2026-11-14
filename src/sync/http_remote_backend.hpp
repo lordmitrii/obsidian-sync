@@ -9,10 +9,8 @@
 
 class HttpRemoteBackend : public RemoteBackend {
   public:
-    HttpRemoteBackend(std::string remote_url,
-                      std::string bearer_token,
-                      std::size_t max_upload_bytes,
-                      std::string cacert_path = "");
+    HttpRemoteBackend(std::string remote_url, std::string bearer_token,
+                      std::size_t max_upload_bytes, std::string cacert_path = "");
 
     Manifest load_manifest() override;
     void upload(const std::string &path, const std::filesystem::path &local_file) override;

@@ -13,6 +13,5 @@ struct MergeResult {
     std::string content;
 };
 
-MergeResult merge_three_way_text(const std::string &base,
-                                 const std::string &ours,
+MergeResult merge_three_way_text(const std::string &base, const std::string &ours,
                                  const std::string &theirs);

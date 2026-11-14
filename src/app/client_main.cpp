@@ -169,12 +169,11 @@ int main(int argc, char *argv[]) {
 
             Database db(config.state_db_path);
             db.initialize();
-            db.mark_conflict_resolved(
-                config.resolve_conflict_path,
-                conflict_resolution_to_string(config.conflict_resolution),
-                std::chrono::duration_cast<std::chrono::seconds>(
-                    std::chrono::system_clock::now().time_since_epoch())
-                    .count());
+            db.mark_conflict_resolved(config.resolve_conflict_path,
+                                      conflict_resolution_to_string(config.conflict_resolution),
+                                      std::chrono::duration_cast<std::chrono::seconds>(
+                                          std::chrono::system_clock::now().time_since_epoch())
+                                          .count());
 
             if (!config.quiet) {
                 std::cout << "Resolved " << config.resolve_conflict_path << "\n";
@@ -211,9 +210,10 @@ int main(int argc, char *argv[]) {
 
                 if (hash.empty()) {
                     auto versions = backend.history(config.restore_path);
-                    auto found = std::find_if(
-                        versions.begin(), versions.end(),
-                        [&](const FileVersion &v) { return v.timestamp <= config.restore_at; });
+                    auto found =
+                        std::find_if(versions.begin(), versions.end(), [&](const FileVersion &v) {
+                            return v.timestamp <= config.restore_at;
+                        });
 
                     if (found == versions.end()) {
                         std::cerr << "No stored version of " << config.restore_path
@@ -260,9 +260,8 @@ int main(int argc, char *argv[]) {
             DeleteSafetyLimits delete_limits{config.force_deletes, config.max_delete_count,
                                              config.max_delete_percent};
             SyncService sync_service(config.local_root, config.state_db_path, backend, config.apply,
-                                     delete_limits, config.trash_retention_days,
-                                     config.sync_config, config.quiet, config.verbose,
-                                     config.on_conflict);
+                                     delete_limits, config.trash_retention_days, config.sync_config,
+                                     config.quiet, config.verbose, config.on_conflict);
 
             if (config.watch) {
                 run_watch_loop(config, sync_service);
@@ -289,9 +288,8 @@ int main(int argc, char *argv[]) {
             DeleteSafetyLimits delete_limits{config.force_deletes, config.max_delete_count,
                                              config.max_delete_percent};
             SyncService sync_service(config.local_root, config.state_db_path, backend, config.apply,
-                                     delete_limits, config.trash_retention_days,
-                                     config.sync_config, config.quiet, config.verbose,
-                                     config.on_conflict);
+                                     delete_limits, config.trash_retention_days, config.sync_config,
+                                     config.quiet, config.verbose, config.on_conflict);
 
             if (config.watch) {
                 run_watch_loop(config, sync_service);

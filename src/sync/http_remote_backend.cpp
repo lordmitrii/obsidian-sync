@@ -89,17 +89,15 @@ static std::string restore_url(const std::string &remote_url, const std::string 
     curl_easy_cleanup(curl);
 
     return trim_trailing_slashes(remote_url) + "/restore?path=" + escaped_path +
-          "&hash=" + escaped_hash;
+           "&hash=" + escaped_hash;
 }
 
 static std::string prune_url(const std::string &remote_url) {
     return trim_trailing_slashes(remote_url) + "/prune";
 }
 
-static HttpResponse request(const std::string &method,
-                            const std::string &url,
-                            const std::string &bearer_token,
-                            const std::string &cacert_path,
+static HttpResponse request(const std::string &method, const std::string &url,
+                            const std::string &bearer_token, const std::string &cacert_path,
                             const std::string *body = nullptr) {
     CURL *curl = curl_easy_init();
 
@@ -138,15 +136,16 @@ static HttpResponse request(const std::string &method,
         curl_easy_setopt(curl, CURLOPT_UPLOAD, 1L);
         curl_easy_setopt(curl, CURLOPT_INFILESIZE_LARGE,
                          static_cast<curl_off_t>(body != nullptr ? body->size() : 0));
-        curl_easy_setopt(curl, CURLOPT_READFUNCTION,
-                         +[](char *buf, std::size_t size, std::size_t nmemb, void *ud) -> std::size_t {
-                             auto *s = static_cast<ReadState *>(ud);
-                             std::size_t n = std::min(size * nmemb, s->remaining);
-                             std::memcpy(buf, s->data + s->offset, n);
-                             s->offset += n;
-                             s->remaining -= n;
-                             return n;
-                         });
+        curl_easy_setopt(
+            curl, CURLOPT_READFUNCTION,
+            +[](char *buf, std::size_t size, std::size_t nmemb, void *ud) -> std::size_t {
+                auto *s = static_cast<ReadState *>(ud);
+                std::size_t n = std::min(size * nmemb, s->remaining);
+                std::memcpy(buf, s->data + s->offset, n);
+                s->offset += n;
+                s->remaining -= n;
+                return n;
+            });
         curl_easy_setopt(curl, CURLOPT_READDATA, &read_state);
     } else if (method == "DELETE") {
         curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, "DELETE");
@@ -191,14 +190,10 @@ static void write_file(const fs::path &path, const std::string &body, bool overw
     atomic_write_file(path, body);
 }
 
-HttpRemoteBackend::HttpRemoteBackend(std::string remote_url,
-                                     std::string bearer_token,
-                                     std::size_t max_upload_bytes,
-                                     std::string cacert_path)
-    : remote_url_(std::move(remote_url)),
-      bearer_token_(std::move(bearer_token)),
-      max_upload_bytes_(max_upload_bytes),
-      cacert_path_(std::move(cacert_path)) {}
+HttpRemoteBackend::HttpRemoteBackend(std::string remote_url, std::string bearer_token,
+                                     std::size_t max_upload_bytes, std::string cacert_path)
+    : remote_url_(std::move(remote_url)), bearer_token_(std::move(bearer_token)),
+      max_upload_bytes_(max_upload_bytes), cacert_path_(std::move(cacert_path)) {}
 
 Manifest HttpRemoteBackend::load_manifest() {
     HttpResponse response = request("GET", manifest_url(remote_url_), bearer_token_, cacert_path_);

@@ -26,7 +26,8 @@ int main(int argc, char *argv[]) {
             return 1;
         }
 
-        if (!config.local_root.empty() || !config.remote_root.empty() || !config.remote_url.empty()) {
+        if (!config.local_root.empty() || !config.remote_root.empty() ||
+            !config.remote_url.empty()) {
             std::cerr << "Use obsidian-sync-client for client sync options\n";
             return 1;
         }
@@ -37,16 +38,10 @@ int main(int argc, char *argv[]) {
         }
 
         std::string token = load_required_bearer_token();
-        run_http_server(config.server_root,
-                        config.server_host,
-                        config.server_port,
-                        token,
-                        DEFAULT_MAX_UPLOAD_BYTES,
-                        DEFAULT_RATE_LIMIT_PER_MINUTE,
-                        config.trusted_proxy,
-                        config.trash_retention_days,
-                        config.max_versions_per_file,
-                        config.version_retention_days,
+        run_http_server(config.server_root, config.server_host, config.server_port, token,
+                        DEFAULT_MAX_UPLOAD_BYTES, DEFAULT_RATE_LIMIT_PER_MINUTE,
+                        config.trusted_proxy, config.trash_retention_days,
+                        config.max_versions_per_file, config.version_retention_days,
                         config.sync_config);
 
     } catch (const std::exception &e) {

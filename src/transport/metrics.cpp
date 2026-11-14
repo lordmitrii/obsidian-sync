@@ -37,7 +37,8 @@ std::string format_metrics_prometheus(const MetricsSnapshot &snapshot) {
     out << "# HELP obsidian_sync_requests_by_status_total Requests served by HTTP status code\n";
     out << "# TYPE obsidian_sync_requests_by_status_total counter\n";
     for (const auto &[status, count] : snapshot.requests_by_status) {
-        out << "obsidian_sync_requests_by_status_total{status=\"" << status << "\"} " << count << "\n";
+        out << "obsidian_sync_requests_by_status_total{status=\"" << status << "\"} " << count
+            << "\n";
     }
 
     return out.str();

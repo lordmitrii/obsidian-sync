@@ -6,7 +6,7 @@
 #include <unordered_set>
 
 class ObjectStore {
-public:
+  public:
     explicit ObjectStore(std::filesystem::path objects_dir);
 
     std::string put(const std::string &content) const;
@@ -17,6 +17,6 @@ public:
 
     void prune(const std::unordered_set<std::string> &keep_hashes) const;
 
-private:
+  private:
     std::filesystem::path objects_dir_;
 };

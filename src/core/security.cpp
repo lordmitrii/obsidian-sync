@@ -15,9 +15,7 @@ std::string load_required_bearer_token() {
     return value;
 }
 
-std::string bearer_authorization_header(const std::string &token) {
-    return "Bearer " + token;
-}
+std::string bearer_authorization_header(const std::string &token) { return "Bearer " + token; }
 
 bool constant_time_equals(const std::string &a, const std::string &b) {
     if (a.size() != b.size()) {
@@ -49,9 +47,8 @@ bool is_secure_remote_url(const std::string &url) {
 
     if (!host_and_rest.empty() && host_and_rest.front() == '[') {
         auto closing_bracket = host_and_rest.find(']');
-        host = host_and_rest.substr(0, closing_bracket == std::string::npos
-                                            ? host_and_rest.size()
-                                            : closing_bracket + 1);
+        host = host_and_rest.substr(0, closing_bracket == std::string::npos ? host_and_rest.size()
+                                                                            : closing_bracket + 1);
     } else {
         host = host_and_rest.substr(0, host_and_rest.find_first_of(":/"));
     }

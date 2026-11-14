@@ -74,9 +74,9 @@ fs::path unique_path(const fs::path &first_choice) {
     }
 
     for (int n = 2;; ++n) {
-        fs::path candidate = first_choice.parent_path() /
-                             (first_choice.stem().string() + "." + std::to_string(n) +
-                              first_choice.extension().string());
+        fs::path candidate =
+            first_choice.parent_path() / (first_choice.stem().string() + "." + std::to_string(n) +
+                                          first_choice.extension().string());
 
         if (!fs::exists(candidate)) {
             return candidate;
@@ -135,8 +135,9 @@ void cleanup_trash(const fs::path &trash_root, int retention_days) {
 
     // Deepest paths first so a directory left empty by removing its only
     // (now-empty) subdirectory gets pruned too, in the same pass.
-    std::sort(directories.begin(), directories.end(),
-              [](const fs::path &a, const fs::path &b) { return a.string().size() > b.string().size(); });
+    std::sort(directories.begin(), directories.end(), [](const fs::path &a, const fs::path &b) {
+        return a.string().size() > b.string().size();
+    });
 
     for (const auto &dir : directories) {
         std::error_code remove_ec;

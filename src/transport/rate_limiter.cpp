@@ -1,10 +1,8 @@
 #include "rate_limiter.hpp"
 
-RateLimiter::RateLimiter(int max_requests_per_minute,
-                         std::function<Clock::time_point()> now_fn,
+RateLimiter::RateLimiter(int max_requests_per_minute, std::function<Clock::time_point()> now_fn,
                          Clock::duration eviction_interval)
-    : max_requests_per_minute_(max_requests_per_minute),
-      now_fn_(std::move(now_fn)),
+    : max_requests_per_minute_(max_requests_per_minute), now_fn_(std::move(now_fn)),
       eviction_interval_(eviction_interval) {}
 
 static void trim_stale(std::deque<RateLimiter::Clock::time_point> &requests,

@@ -72,7 +72,8 @@ static std::string rate_limit_key(const httplib::Request &req, const std::string
 static const char *kRequestIdHeader = "X-Osync-Request-Id";
 static const char *kRequestStartHeader = "X-Osync-Request-Start-Ns";
 
-static void stamp_request_metadata(const httplib::Request &req, std::atomic<std::uint64_t> &next_request_id) {
+static void stamp_request_metadata(const httplib::Request &req,
+                                   std::atomic<std::uint64_t> &next_request_id) {
     auto &mutable_req = const_cast<httplib::Request &>(req);
     std::uint64_t id = next_request_id.fetch_add(1);
     auto start_ns = std::chrono::steady_clock::now().time_since_epoch().count();
@@ -80,7 +81,8 @@ static void stamp_request_metadata(const httplib::Request &req, std::atomic<std:
     mutable_req.set_header(kRequestStartHeader, std::to_string(start_ns));
 }
 
-static void log_access(const httplib::Request &req, const httplib::Response &res, ServerMetrics &metrics) {
+static void log_access(const httplib::Request &req, const httplib::Response &res,
+                       ServerMetrics &metrics) {
     metrics.record_request(res.status, res.body.size());
 
     AccessLogEntry entry;
@@ -104,17 +106,11 @@ static void log_access(const httplib::Request &req, const httplib::Response &res
     std::cout << format_access_log_entry(entry) << std::endl;
 }
 
-void run_http_server(const fs::path &server_root,
-                     const std::string &host,
-                     int port,
-                     const std::string &bearer_token,
-                     std::size_t max_upload_bytes,
-                     int rate_limit_per_minute,
-                     const std::string &trusted_proxy,
-                     int trash_retention_days,
-                     std::size_t max_versions_per_file,
-                     int version_retention_days,
-                     SyncConfigPreset sync_config) {
+void run_http_server(const fs::path &server_root, const std::string &host, int port,
+                     const std::string &bearer_token, std::size_t max_upload_bytes,
+                     int rate_limit_per_minute, const std::string &trusted_proxy,
+                     int trash_retention_days, std::size_t max_versions_per_file,
+                     int version_retention_days, SyncConfigPreset sync_config) {
     httplib::Server server;
     RateLimiter authenticated_limiter(rate_limit_per_minute);
     RateLimiter unauthenticated_limiter(rate_limit_per_minute);
@@ -127,8 +123,8 @@ void run_http_server(const fs::path &server_root,
         log_access(req, res, metrics);
     });
     server.set_pre_routing_handler(
-        [&bearer_token, &authenticated_limiter, &unauthenticated_limiter,
-         &trusted_proxy, &next_request_id](const httplib::Request &req, httplib::Response &res) {
+        [&bearer_token, &authenticated_limiter, &unauthenticated_limiter, &trusted_proxy,
+         &next_request_id](const httplib::Request &req, httplib::Response &res) {
             stamp_request_metadata(req, next_request_id);
 
             if (req.path == "/healthz") {
@@ -213,8 +209,8 @@ void run_http_server(const fs::path &server_root,
         res.set_content(body, "application/octet-stream");
     });
 
-    server.Put("/file", [server_root, &versions, max_versions_per_file,
-                         version_retention_days](const httplib::Request &req, httplib::Response &res) {
+    server.Put("/file", [server_root, &versions, max_versions_per_file, version_retention_days](
+                            const httplib::Request &req, httplib::Response &res) {
         std::string relative_path;
 
         if (!request_path(req, relative_path)) {
@@ -241,39 +237,39 @@ void run_http_server(const fs::path &server_root,
         res.status = 204;
     });
 
-    server.Delete("/file", [server_root, trash_retention_days, &versions, max_versions_per_file,
-                           version_retention_days](const httplib::Request &req,
-                                                   httplib::Response &res) {
-        std::string relative_path;
+    server.Delete("/file",
+                  [server_root, trash_retention_days, &versions, max_versions_per_file,
+                   version_retention_days](const httplib::Request &req, httplib::Response &res) {
+                      std::string relative_path;
 
-        if (!request_path(req, relative_path)) {
-            res.status = 400;
-            res.set_content("Invalid path\n", "text/plain");
-            return;
-        }
+                      if (!request_path(req, relative_path)) {
+                          res.status = 400;
+                          res.set_content("Invalid path\n", "text/plain");
+                          return;
+                      }
 
-        fs::path full_path = server_root / fs::path(relative_path);
+                      fs::path full_path = server_root / fs::path(relative_path);
 
-        if (fs::exists(full_path) && !fs::is_regular_file(full_path)) {
-            res.status = 400;
-            res.set_content("Path is not a regular file\n", "text/plain");
-            return;
-        }
+                      if (fs::exists(full_path) && !fs::is_regular_file(full_path)) {
+                          res.status = 400;
+                          res.set_content("Path is not a regular file\n", "text/plain");
+                          return;
+                      }
 
-        if (fs::exists(full_path)) {
-            std::string content;
+                      if (fs::exists(full_path)) {
+                          std::string content;
 
-            if (read_file(full_path, content)) {
-                versions.record(relative_path, content);
-                versions.prune_all(max_versions_per_file, version_retention_days);
-            }
+                          if (read_file(full_path, content)) {
+                              versions.record(relative_path, content);
+                              versions.prune_all(max_versions_per_file, version_retention_days);
+                          }
 
-            move_to_trash(full_path, server_root / ".trash", fs::path(relative_path));
-            cleanup_trash(server_root / ".trash", trash_retention_days);
-        }
+                          move_to_trash(full_path, server_root / ".trash", fs::path(relative_path));
+                          cleanup_trash(server_root / ".trash", trash_retention_days);
+                      }
 
-        res.status = 204;
-    });
+                      res.status = 204;
+                  });
 
     server.Get("/history", [&versions](const httplib::Request &req, httplib::Response &res) {
         std::string relative_path;
@@ -287,54 +283,55 @@ void run_http_server(const fs::path &server_root,
         nlohmann::json j = nlohmann::json::array();
 
         for (const auto &version : versions.list(relative_path)) {
-            j.push_back({{"hash", version.hash}, {"timestamp", version.timestamp}, {"size", version.size}});
+            j.push_back(
+                {{"hash", version.hash}, {"timestamp", version.timestamp}, {"size", version.size}});
         }
 
         res.set_content(j.dump(2), "application/json");
     });
 
-    server.Post("/restore", [server_root, &versions](const httplib::Request &req,
-                                                      httplib::Response &res) {
-        std::string relative_path;
+    server.Post("/restore",
+                [server_root, &versions](const httplib::Request &req, httplib::Response &res) {
+                    std::string relative_path;
 
-        if (!request_path(req, relative_path)) {
-            res.status = 400;
-            res.set_content("Invalid path\n", "text/plain");
-            return;
-        }
+                    if (!request_path(req, relative_path)) {
+                        res.status = 400;
+                        res.set_content("Invalid path\n", "text/plain");
+                        return;
+                    }
 
-        if (!req.has_param("hash")) {
-            res.status = 400;
-            res.set_content("Missing hash parameter\n", "text/plain");
-            return;
-        }
+                    if (!req.has_param("hash")) {
+                        res.status = 400;
+                        res.set_content("Missing hash parameter\n", "text/plain");
+                        return;
+                    }
 
-        auto restored_content = versions.content(req.get_param_value("hash"));
+                    auto restored_content = versions.content(req.get_param_value("hash"));
 
-        if (!restored_content) {
-            res.status = 404;
-            res.set_content("Version not found\n", "text/plain");
-            return;
-        }
+                    if (!restored_content) {
+                        res.status = 404;
+                        res.set_content("Version not found\n", "text/plain");
+                        return;
+                    }
 
-        fs::path full_path = server_root / fs::path(relative_path);
-        std::string current_content;
+                    fs::path full_path = server_root / fs::path(relative_path);
+                    std::string current_content;
 
-        if (fs::exists(full_path) && read_file(full_path, current_content)) {
-            versions.record(relative_path, current_content);
-        }
+                    if (fs::exists(full_path) && read_file(full_path, current_content)) {
+                        versions.record(relative_path, current_content);
+                    }
 
-        if (!write_file(full_path, *restored_content)) {
-            res.status = 500;
-            res.set_content("Failed to write file\n", "text/plain");
-            return;
-        }
+                    if (!write_file(full_path, *restored_content)) {
+                        res.status = 500;
+                        res.set_content("Failed to write file\n", "text/plain");
+                        return;
+                    }
 
-        res.status = 204;
-    });
+                    res.status = 204;
+                });
 
-    server.Post("/prune", [&versions, max_versions_per_file,
-                          version_retention_days](const httplib::Request &, httplib::Response &res) {
+    server.Post("/prune", [&versions, max_versions_per_file, version_retention_days](
+                              const httplib::Request &, httplib::Response &res) {
         versions.prune_all(max_versions_per_file, version_retention_days);
         res.status = 204;
     });

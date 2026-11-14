@@ -19,15 +19,10 @@ struct DeleteSafetyLimits {
 
 class SyncService {
   public:
-    SyncService(std::filesystem::path local_root,
-                std::string state_db_path,
-                RemoteBackend &remote_backend,
-                bool apply,
-                DeleteSafetyLimits delete_limits = {},
-                int trash_retention_days = 30,
-                SyncConfigPreset sync_config = SyncConfigPreset::All,
-                bool quiet = false,
-                bool verbose = false,
+    SyncService(std::filesystem::path local_root, std::string state_db_path,
+                RemoteBackend &remote_backend, bool apply, DeleteSafetyLimits delete_limits = {},
+                int trash_retention_days = 30, SyncConfigPreset sync_config = SyncConfigPreset::All,
+                bool quiet = false, bool verbose = false,
                 OnConflictPolicy on_conflict = OnConflictPolicy::Copy);
 
     RunStatus run_once();

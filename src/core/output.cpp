@@ -55,9 +55,9 @@ void write_json_manifest_to_file(const std::vector<FileMeta> &files,
 
 json vault_status_to_json(const VaultStatus &status) {
     return json{{"tracked_files", status.tracked_files},
-               {"tracked_bytes", status.tracked_bytes},
-               {"unresolved_conflicts", status.unresolved_conflicts},
-               {"trashed_files", status.trashed_files}};
+                {"tracked_bytes", status.tracked_bytes},
+                {"unresolved_conflicts", status.unresolved_conflicts},
+                {"trashed_files", status.trashed_files}};
 }
 
 void print_json_vault_status(const VaultStatus &status) {

@@ -63,8 +63,7 @@ static ConflictCopySlot pick_conflict_copy_slot(const fs::path &local_path,
     }
 }
 
-static void print_manifest_actions(const std::vector<ManifestAction> &actions,
-                                   bool quiet,
+static void print_manifest_actions(const std::vector<ManifestAction> &actions, bool quiet,
                                    bool verbose) {
     if (quiet) {
         return;
@@ -96,8 +95,7 @@ static size_t count_deletes(const std::vector<ManifestAction> &actions) {
 
 static constexpr size_t kMinBaseSizeForPercentLimit = 10;
 
-static bool exceeds_delete_limits(size_t delete_count,
-                                  size_t base_size,
+static bool exceeds_delete_limits(size_t delete_count, size_t base_size,
                                   const DeleteSafetyLimits &limits) {
     if (limits.force || delete_count == 0) {
         return false;
@@ -125,8 +123,7 @@ static bool remote_manifest_suspiciously_empty(const Manifest &remote_manifest,
     return remote_manifest.empty() && base_manifest.size() >= kMinBaseSizeForPercentLimit;
 }
 
-static size_t report_unresolved_conflicts(Database &db,
-                                          const std::vector<ManifestAction> &actions,
+static size_t report_unresolved_conflicts(Database &db, const std::vector<ManifestAction> &actions,
                                           const Manifest &local_manifest,
                                           const Manifest &remote_manifest,
                                           const std::set<std::string> &merged_paths = {}) {
@@ -145,10 +142,9 @@ static size_t report_unresolved_conflicts(Database &db,
 
             auto local_it = local_manifest.find(action.path);
             auto remote_it = remote_manifest.find(action.path);
-            db.record_conflict(action.path,
-                               local_it != local_manifest.end() ? local_it->second.hash : "",
-                               remote_it != remote_manifest.end() ? remote_it->second.hash : "",
-                               detected_time);
+            db.record_conflict(
+                action.path, local_it != local_manifest.end() ? local_it->second.hash : "",
+                remote_it != remote_manifest.end() ? remote_it->second.hash : "", detected_time);
         }
     }
 
@@ -168,15 +164,13 @@ static size_t report_unresolved_conflicts(Database &db,
 // re-read could see an edit the user made after the scan, which would wrongly
 // promote that edit to "base" without it ever having reached the remote.
 static void remember_merge_base_if_markdown(const ObjectStore &object_store,
-                                            const fs::path &local_root,
-                                            const FileMeta &meta) {
+                                            const fs::path &local_root, const FileMeta &meta) {
     if (is_markdown_path(meta.path)) {
         object_store.put(read_text_file(local_root / meta.path));
     }
 }
 
-static void update_base_state_after_apply(Database &db,
-                                          const std::vector<ManifestAction> &actions,
+static void update_base_state_after_apply(Database &db, const std::vector<ManifestAction> &actions,
                                           const Manifest &local_manifest,
                                           const Manifest &remote_manifest,
                                           const std::set<std::string> &failed_paths,
@@ -236,10 +230,8 @@ static void update_base_state_after_apply(Database &db,
     }
 }
 
-static bool try_merge_conflict(const std::string &path,
-                               const fs::path &local_root,
-                               const Manifest &base_manifest,
-                               RemoteBackend &remote_backend,
+static bool try_merge_conflict(const std::string &path, const fs::path &local_root,
+                               const Manifest &base_manifest, RemoteBackend &remote_backend,
                                const ObjectStore &object_store) {
     if (!is_markdown_path(path)) {
         return false;
@@ -284,14 +276,10 @@ static bool try_merge_conflict(const std::string &path,
     return true;
 }
 
-static bool apply_action(const ManifestAction &action,
-                         const fs::path &local_root,
-                         const Manifest &base_manifest,
-                         const Manifest &local_manifest,
-                         const Manifest &remote_manifest,
-                         RemoteBackend &remote_backend,
-                         const ObjectStore &object_store,
-                         OnConflictPolicy on_conflict) {
+static bool apply_action(const ManifestAction &action, const fs::path &local_root,
+                         const Manifest &base_manifest, const Manifest &local_manifest,
+                         const Manifest &remote_manifest, RemoteBackend &remote_backend,
+                         const ObjectStore &object_store, OnConflictPolicy on_conflict) {
     fs::path local_path = local_root / action.path;
 
     switch (action.type) {
@@ -330,7 +318,8 @@ static bool apply_action(const ManifestAction &action,
         std::cout << "Conflict: " << action.path << "\n";
 
         if (on_conflict == OnConflictPolicy::Merge &&
-            try_merge_conflict(action.path, local_root, base_manifest, remote_backend, object_store)) {
+            try_merge_conflict(action.path, local_root, base_manifest, remote_backend,
+                               object_store)) {
             return true;
         }
 
@@ -382,12 +371,9 @@ struct ApplyOutcome {
 // every action sorted after it. Returns the paths that failed, so the
 // caller can leave their base state alone and retry them next run.
 static ApplyOutcome apply_actions(const std::vector<ManifestAction> &actions,
-                                  const fs::path &local_root,
-                                  const Manifest &base_manifest,
-                                  const Manifest &local_manifest,
-                                  const Manifest &remote_manifest,
-                                  RemoteBackend &remote_backend,
-                                  const ObjectStore &object_store,
+                                  const fs::path &local_root, const Manifest &base_manifest,
+                                  const Manifest &local_manifest, const Manifest &remote_manifest,
+                                  RemoteBackend &remote_backend, const ObjectStore &object_store,
                                   OnConflictPolicy on_conflict) {
     ApplyOutcome outcome;
 
@@ -409,26 +395,15 @@ static ApplyOutcome apply_actions(const std::vector<ManifestAction> &actions,
     return outcome;
 }
 
-SyncService::SyncService(fs::path local_root,
-                         std::string state_db_path,
-                         RemoteBackend &remote_backend,
-                         bool apply,
-                         DeleteSafetyLimits delete_limits,
-                         int trash_retention_days,
-                         SyncConfigPreset sync_config,
-                         bool quiet,
-                         bool verbose,
+SyncService::SyncService(fs::path local_root, std::string state_db_path,
+                         RemoteBackend &remote_backend, bool apply,
+                         DeleteSafetyLimits delete_limits, int trash_retention_days,
+                         SyncConfigPreset sync_config, bool quiet, bool verbose,
                          OnConflictPolicy on_conflict)
-    : local_root_(std::move(local_root)),
-      state_db_path_(std::move(state_db_path)),
-      remote_backend_(remote_backend),
-      apply_(apply),
-      delete_limits_(delete_limits),
-      trash_retention_days_(trash_retention_days),
-      sync_config_(sync_config),
-      quiet_(quiet),
-      verbose_(verbose),
-      on_conflict_(on_conflict),
+    : local_root_(std::move(local_root)), state_db_path_(std::move(state_db_path)),
+      remote_backend_(remote_backend), apply_(apply), delete_limits_(delete_limits),
+      trash_retention_days_(trash_retention_days), sync_config_(sync_config), quiet_(quiet),
+      verbose_(verbose), on_conflict_(on_conflict),
       object_store_(fs::path(state_db_path_).parent_path() / "objects") {}
 
 RunStatus SyncService::run_once() {
@@ -471,10 +446,11 @@ RunStatus SyncService::run_once() {
 
     auto outcome = apply_actions(actions, local_root_, base_manifest, local_manifest,
                                  remote_manifest, remote_backend_, object_store_, on_conflict_);
-    size_t conflict_count = report_unresolved_conflicts(db, actions, local_manifest, remote_manifest,
-                                                        outcome.merged_paths);
-    update_base_state_after_apply(db, actions, local_manifest, remote_manifest, outcome.failed_paths,
-                                  outcome.merged_paths, local_root_, object_store_);
+    size_t conflict_count = report_unresolved_conflicts(db, actions, local_manifest,
+                                                        remote_manifest, outcome.merged_paths);
+    update_base_state_after_apply(db, actions, local_manifest, remote_manifest,
+                                  outcome.failed_paths, outcome.merged_paths, local_root_,
+                                  object_store_);
 
     std::unordered_set<std::string> markdown_base_hashes;
     for (const auto &[path, meta] : db.load_as_manifest()) {
@@ -487,7 +463,8 @@ RunStatus SyncService::run_once() {
     cleanup_trash(local_root_ / ".trash", trash_retention_days_);
 
     if (!outcome.failed_paths.empty()) {
-        std::cerr << outcome.failed_paths.size() << " action(s) failed and will be retried next run\n";
+        std::cerr << outcome.failed_paths.size()
+                  << " action(s) failed and will be retried next run\n";
         return RunStatus::ActionsFailed;
     }
 

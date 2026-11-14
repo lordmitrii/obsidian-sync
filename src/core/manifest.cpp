@@ -9,11 +9,11 @@
 
 using json = nlohmann::json;
 
-Manifest parse_manifest_json(const std::string& json_text) {
+Manifest parse_manifest_json(const std::string &json_text) {
     json root = json::parse(json_text);
     Manifest manifest;
 
-    for (const auto& item : root.at("files")) {
+    for (const auto &item : root.at("files")) {
         FileMeta meta;
 
         meta.path = item.at("path");
@@ -31,7 +31,7 @@ Manifest parse_manifest_json(const std::string& json_text) {
     return manifest;
 }
 
-Manifest load_manifest(const std::string& path) {
+Manifest load_manifest(const std::string &path) {
     std::ifstream file(path);
 
     if (!file) {
@@ -43,7 +43,7 @@ Manifest load_manifest(const std::string& path) {
 
     try {
         return parse_manifest_json(buffer.str());
-    } catch (const std::exception& error) {
+    } catch (const std::exception &error) {
         throw std::runtime_error("Malformed manifest " + path + ": " + error.what());
     }
 }

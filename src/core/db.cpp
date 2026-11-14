@@ -64,7 +64,7 @@ void Database::initialize() {
     };
 
     for (size_t version = static_cast<size_t>(schema_version(db)); version < migrations.size();
-        ++version) {
+         ++version) {
         run_sql(db, migrations[version]);
         run_sql(db, "PRAGMA user_version = " + std::to_string(version + 1) + ";");
     }

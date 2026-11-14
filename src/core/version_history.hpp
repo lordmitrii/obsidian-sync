@@ -15,7 +15,7 @@ struct FileVersion {
 };
 
 class VersionHistory {
-public:
+  public:
     explicit VersionHistory(std::filesystem::path versions_root);
 
     void record(const std::filesystem::path &relative_path, const std::string &content) const;
@@ -26,7 +26,7 @@ public:
 
     void prune_all(std::size_t max_versions_per_file, int retention_days) const;
 
-private:
+  private:
     std::filesystem::path versions_root_;
     ObjectStore objects_;
 

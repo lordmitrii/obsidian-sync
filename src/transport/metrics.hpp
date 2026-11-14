@@ -17,11 +17,11 @@ struct MetricsSnapshot {
 std::string format_metrics_prometheus(const MetricsSnapshot &snapshot);
 
 class ServerMetrics {
-public:
+  public:
     void record_request(int status, std::size_t response_bytes);
     MetricsSnapshot snapshot() const;
 
-private:
+  private:
     mutable std::mutex mutex_;
     std::uint64_t requests_total_ = 0;
     std::uint64_t response_bytes_total_ = 0;

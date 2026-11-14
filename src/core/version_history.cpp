@@ -14,13 +14,9 @@ namespace fs = std::filesystem;
 
 namespace {
 
-fs::path index_root(const fs::path &versions_root) {
-    return versions_root / "index";
-}
+fs::path index_root(const fs::path &versions_root) { return versions_root / "index"; }
 
-fs::path objects_root(const fs::path &versions_root) {
-    return versions_root / "objects";
-}
+fs::path objects_root(const fs::path &versions_root) { return versions_root / "objects"; }
 
 std::vector<FileVersion> read_index(const fs::path &index_file) {
     std::vector<FileVersion> entries;
@@ -114,14 +110,15 @@ void VersionHistory::prune_all(std::size_t max_versions_per_file, int retention_
         std::vector<FileVersion> entries = read_index(entry.path());
 
         if (!cutoff.empty()) {
-            entries.erase(std::remove_if(entries.begin(), entries.end(),
-                                        [&cutoff](const FileVersion &v) { return v.timestamp < cutoff; }),
-                         entries.end());
+            entries.erase(
+                std::remove_if(entries.begin(), entries.end(),
+                               [&cutoff](const FileVersion &v) { return v.timestamp < cutoff; }),
+                entries.end());
         }
 
         if (max_versions_per_file > 0 && entries.size() > max_versions_per_file) {
             entries.erase(entries.begin(),
-                         entries.end() - static_cast<std::ptrdiff_t>(max_versions_per_file));
+                          entries.end() - static_cast<std::ptrdiff_t>(max_versions_per_file));
         }
 
         if (entries.empty()) {

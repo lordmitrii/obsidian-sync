@@ -5,7 +5,4 @@
 
 #include <vector>
 
-std::vector<ManifestAction> compare_two_way(
-    const Manifest& local,
-    const Manifest& remote
-);
+std::vector<ManifestAction> compare_two_way(const Manifest &local, const Manifest &remote);

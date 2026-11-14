@@ -2,14 +2,7 @@
 
 #include <string>
 
-enum class ManifestActionType {
-    Upload,
-    Download,
-    DeleteLocal,
-    DeleteRemote,
-    Conflict,
-    Unchanged
-};
+enum class ManifestActionType { Upload, Download, DeleteLocal, DeleteRemote, Conflict, Unchanged };
 
 struct ManifestAction {
     ManifestActionType type;

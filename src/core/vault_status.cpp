@@ -10,9 +10,8 @@
 namespace fs = std::filesystem;
 
 static bool is_all_digits(const std::string &text) {
-    return !text.empty() &&
-           std::all_of(text.begin(), text.end(),
-                      [](unsigned char c) { return std::isdigit(c) != 0; });
+    return !text.empty() && std::all_of(text.begin(), text.end(),
+                                        [](unsigned char c) { return std::isdigit(c) != 0; });
 }
 
 static bool is_conflict_copy(const fs::path &path) {
@@ -49,9 +48,8 @@ static fs::path original_note_relative_path(const fs::path &conflict_relative_pa
 
     if (!suffix.empty() && suffix.front() == '.') {
         const auto next_dot = suffix.find('.', 1);
-        const std::string number = suffix.substr(1, next_dot == std::string::npos
-                                                       ? std::string::npos
-                                                       : next_dot - 1);
+        const std::string number =
+            suffix.substr(1, next_dot == std::string::npos ? std::string::npos : next_dot - 1);
 
         if (is_all_digits(number)) {
             suffix = next_dot == std::string::npos ? "" : suffix.substr(next_dot);
@@ -118,17 +116,16 @@ std::vector<std::string> list_conflicted_notes(const fs::path &vault_path) {
 }
 
 fs::path conflict_copy_path(const fs::path &note_path, int n) {
-    fs::path first_choice = note_path.parent_path() /
-                            (note_path.stem().string() + ".conflict-remote" +
-                             note_path.extension().string());
+    fs::path first_choice =
+        note_path.parent_path() /
+        (note_path.stem().string() + ".conflict-remote" + note_path.extension().string());
 
     if (n == 1) {
         return first_choice;
     }
 
-    return first_choice.parent_path() /
-           (first_choice.stem().string() + "." + std::to_string(n) +
-            first_choice.extension().string());
+    return first_choice.parent_path() / (first_choice.stem().string() + "." + std::to_string(n) +
+                                         first_choice.extension().string());
 }
 
 static std::vector<fs::path> existing_conflict_copies(const fs::path &note_absolute_path) {

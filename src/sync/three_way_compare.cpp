@@ -3,26 +3,23 @@
 #include <algorithm>
 #include <unordered_set>
 
-static bool same_hash(const FileMeta& left, const FileMeta& right) {
+static bool same_hash(const FileMeta &left, const FileMeta &right) {
     return left.hash == right.hash;
 }
 
-std::vector<ManifestAction> compare_three_way(
-    const Manifest& base,
-    const Manifest& local,
-    const Manifest& remote
-) {
+std::vector<ManifestAction> compare_three_way(const Manifest &base, const Manifest &local,
+                                              const Manifest &remote) {
     std::unordered_set<std::string> path_set;
 
-    for (const auto& [path, file] : base) {
+    for (const auto &[path, file] : base) {
         path_set.insert(path);
     }
 
-    for (const auto& [path, file] : local) {
+    for (const auto &[path, file] : local) {
         path_set.insert(path);
     }
 
-    for (const auto& [path, file] : remote) {
+    for (const auto &[path, file] : remote) {
         path_set.insert(path);
     }
 
@@ -31,7 +28,7 @@ std::vector<ManifestAction> compare_three_way(
 
     std::vector<ManifestAction> actions;
 
-    for (const auto& path : paths) {
+    for (const auto &path : paths) {
         auto base_it = base.find(path);
         auto local_it = local.find(path);
         auto remote_it = remote.find(path);

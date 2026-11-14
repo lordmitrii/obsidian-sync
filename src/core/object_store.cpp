@@ -34,9 +34,7 @@ std::optional<std::string> ObjectStore::get(const std::string &hash) const {
     return buffer.str();
 }
 
-bool ObjectStore::has(const std::string &hash) const {
-    return fs::exists(objects_dir_ / hash);
-}
+bool ObjectStore::has(const std::string &hash) const { return fs::exists(objects_dir_ / hash); }
 
 void ObjectStore::prune(const std::unordered_set<std::string> &keep_hashes) const {
     if (!fs::exists(objects_dir_)) {

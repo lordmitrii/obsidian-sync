@@ -59,7 +59,7 @@ std::vector<ChangeOp> diff_change_ops(const std::vector<std::string> &base,
     for (size_t i = n; i-- > 0;) {
         for (size_t j = m; j-- > 0;) {
             lcs[i][j] = (base[i] == other[j]) ? lcs[i + 1][j + 1] + 1
-                                               : std::max(lcs[i + 1][j], lcs[i][j + 1]);
+                                              : std::max(lcs[i + 1][j], lcs[i][j + 1]);
         }
     }
 
@@ -120,8 +120,7 @@ struct Hunk {
 };
 
 std::vector<Hunk> collect_hunks(const std::vector<std::string> &base,
-                                const std::vector<std::string> &other,
-                                Side side) {
+                                const std::vector<std::string> &other, Side side) {
     std::vector<Hunk> hunks;
 
     for (const auto &op : diff_change_ops(base, other)) {
@@ -155,8 +154,7 @@ std::string ensure_trailing_newline(std::string text) {
 
 } // namespace
 
-MergeResult merge_three_way_text(const std::string &base_text,
-                                 const std::string &ours_text,
+MergeResult merge_three_way_text(const std::string &base_text, const std::string &ours_text,
                                  const std::string &theirs_text) {
     std::vector<std::string> base = split_lines(base_text);
     std::vector<std::string> ours = split_lines(ours_text);
@@ -172,10 +170,8 @@ MergeResult merge_three_way_text(const std::string &base_text,
         return text;
     };
 
-    auto reconstruct_side = [&](Side side,
-                                const std::vector<Hunk> &all_hunks,
-                                const std::vector<size_t> &members,
-                                size_t cluster_start,
+    auto reconstruct_side = [&](Side side, const std::vector<Hunk> &all_hunks,
+                                const std::vector<size_t> &members, size_t cluster_start,
                                 size_t cluster_end) {
         std::string text;
         size_t pos = cluster_start;
