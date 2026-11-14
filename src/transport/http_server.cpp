@@ -10,16 +10,21 @@
 #include "time_utils.hpp"
 #include "version_history.hpp"
 
+#include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <filesystem>
 #include <fstream>
 #include <httplib.h>
 #include <iostream>
+#include <memory>
 #include <mutex>
 #include <sstream>
+#include <vector>
 
 namespace fs = std::filesystem;
+
+static constexpr std::size_t kStreamChunkSize = 64 * 1024;
 
 static bool read_file(const fs::path &path, std::string &body) {
     std::ifstream in(path, std::ios::binary);
@@ -198,32 +203,82 @@ void run_http_server(const fs::path &server_root, const std::string &host, int p
             return;
         }
 
-        std::string body;
+        auto file = std::make_shared<std::ifstream>(full_path, std::ios::binary);
 
-        if (!read_file(full_path, body)) {
+        if (!*file) {
             res.status = 500;
             res.set_content("Failed to read file\n", "text/plain");
             return;
         }
 
-        res.set_content(body, "application/octet-stream");
+        res.set_content_provider(
+            fs::file_size(full_path), "application/octet-stream",
+            [file](std::size_t offset, std::size_t length, httplib::DataSink &sink) {
+                std::vector<char> buffer(std::min(length, kStreamChunkSize));
+                file->seekg(static_cast<std::streamoff>(offset));
+                file->read(buffer.data(), static_cast<std::streamsize>(buffer.size()));
+                auto read = static_cast<std::size_t>(file->gcount());
+
+                if (read == 0) {
+                    return false;
+                }
+
+                return sink.write(buffer.data(), read);
+            });
     });
 
     server.Put("/file", [server_root, &versions, max_versions_per_file, version_retention_days](
-                            const httplib::Request &req, httplib::Response &res) {
+                            const httplib::Request &req, httplib::Response &res,
+                            const httplib::ContentReader &content_reader) {
         std::string relative_path;
 
         if (!request_path(req, relative_path)) {
+            content_reader([](const char *, std::size_t) { return true; });
             res.status = 400;
             res.set_content("Invalid path\n", "text/plain");
             return;
         }
 
         fs::path full_path = server_root / fs::path(relative_path);
+        std::unique_ptr<AtomicFileWriter> writer;
+        std::string write_error;
+
+        try {
+            writer = std::make_unique<AtomicFileWriter>(full_path);
+        } catch (const std::exception &e) {
+            write_error = e.what();
+        }
+
+        bool read_ok = content_reader([&](const char *data, std::size_t length) {
+            if (!write_error.empty()) {
+                return true;
+            }
+
+            try {
+                writer->write(data, length);
+            } catch (const std::exception &e) {
+                write_error = e.what();
+            }
+
+            return true;
+        });
+
+        if (!read_ok) {
+            return;
+        }
+
+        if (!write_error.empty()) {
+            res.status = 500;
+            res.set_content("Failed to write file\n", "text/plain");
+            return;
+        }
+
         std::string previous_content;
         bool had_previous = fs::exists(full_path) && read_file(full_path, previous_content);
 
-        if (!write_file(full_path, req.body)) {
+        try {
+            writer->commit();
+        } catch (const std::exception &) {
             res.status = 500;
             res.set_content("Failed to write file\n", "text/plain");
             return;
