@@ -11,13 +11,6 @@
 // `path` is left untouched if the write fails.
 void atomic_write_file(const std::filesystem::path &path, const std::string &body);
 
-// Same guarantee as atomic_write_file, but for content arriving in chunks
-// (a streamed HTTP request or response body) instead of one in-memory
-// string. Bytes are appended to a temp file next to `destination` via
-// successive write() calls; the temp file is only renamed into place by an
-// explicit commit(), and is discarded if the writer is destroyed first
-// (an error partway through a stream, or a caller that decides not to
-// keep what arrived).
 class AtomicFileWriter {
   public:
     explicit AtomicFileWriter(std::filesystem::path destination);
