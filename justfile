@@ -87,6 +87,12 @@ _setup-journald:
         sudo systemctl restart systemd-journald; \
     "
 
+format:
+    find src tests -name '*.cpp' -o -name '*.hpp' | xargs clang-format -i
+
+format-check:
+    find src tests -name '*.cpp' -o -name '*.hpp' | xargs clang-format --dry-run -Werror
+
 install-client:
     bash install-client.sh
 
